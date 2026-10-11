@@ -1,8 +1,8 @@
-import { handle } from '@/lib/http';
-import { must, requireUser } from '@/lib/supabase/server';
-import { loadActiveWeights } from '@/lib/data';
-import { preflight, stageLabel } from '@/lib/preflight';
-import { predictExpectedPoints } from '@/lib/pipeline';
+import { handle } from '@/server/http';
+import { must, requireUser } from '@/server/integrations/supabase';
+import { loadActiveWeights } from '@/server/db/queries';
+import { preflight, stageLabel } from '@/server/services/preflight';
+import { predictExpectedPoints } from '@/server/services/pipeline';
 
 export const maxDuration = 60;
 

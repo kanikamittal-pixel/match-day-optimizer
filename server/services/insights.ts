@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { must } from './supabase/server';
-import { situationKey } from './data';
+import { must } from '@/server/integrations/supabase';
+import { situationKey } from '@/server/db/queries';
 
 export const MIN_N = 8;
 

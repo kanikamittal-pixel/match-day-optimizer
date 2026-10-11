@@ -1,9 +1,9 @@
-import { handle, HttpError } from '@/lib/http';
-import { must, requireUser } from '@/lib/supabase/server';
-import { loadCredits, loadMatch } from '@/lib/data';
-import { cricket, TTL } from '@/lib/cricket';
-import { matchName } from '@/lib/names';
-import type { MatchXI } from '@/lib/types';
+import { handle, HttpError } from '@/server/http';
+import { must, requireUser } from '@/server/integrations/supabase';
+import { loadCredits, loadMatch } from '@/server/db/queries';
+import { cricket, TTL } from '@/server/integrations/cricketdata';
+import { matchName } from '@/shared/names';
+import type { MatchXI } from '@/shared/types';
 
 /** Save the XI Aryan has set (checkboxes and/or pasted names). */
 export const PUT = handle(async (req: Request, { params }: { params: Promise<{ id: string }> }) => {

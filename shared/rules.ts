@@ -1,4 +1,4 @@
-import { ROLES, type Candidate, type Role, type Rules } from './types';
+import { ROLES, type Candidate, type Role, type Rules } from '@/shared/types';
 
 export interface Violation {
   code: 'size' | 'duplicate' | 'credits' | 'role_min' | 'role_max' | 'team_max' | 'ineligible' | 'missing_data';

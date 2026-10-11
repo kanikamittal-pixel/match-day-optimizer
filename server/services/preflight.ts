@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { HttpError } from './http';
-import { eligibleKeys, loadCredits, loadMatch, loadRules, toCandidates } from './data';
-import type { Stage } from './types';
+import { HttpError } from '@/server/http';
+import { eligibleKeys, loadCredits, loadMatch, loadRules, toCandidates } from '@/server/db/queries';
+import type { Stage } from '@/shared/types';
 
 export interface Gap {
   code: 'xi' | 'credits';

@@ -1,6 +1,6 @@
-import { handle } from '@/lib/http';
-import { must, requireUser } from '@/lib/supabase/server';
-import { errorOverTime, evalRows, groupStats, MIN_N, plainFindings, playbookNudges, scoreboardAndCvc } from '@/lib/insights';
+import { handle } from '@/server/http';
+import { must, requireUser } from '@/server/integrations/supabase';
+import { errorOverTime, evalRows, groupStats, MIN_N, plainFindings, playbookNudges, scoreboardAndCvc } from '@/server/services/insights';
 
 export const GET = handle(async () => {
   const { sb } = await requireUser();

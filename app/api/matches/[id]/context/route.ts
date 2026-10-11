@@ -1,7 +1,7 @@
-import { handle } from '@/lib/http';
-import { must, requireUser } from '@/lib/supabase/server';
-import { loadMatch } from '@/lib/data';
-import { fetchConditions } from '@/lib/pipeline';
+import { handle } from '@/server/http';
+import { must, requireUser } from '@/server/integrations/supabase';
+import { loadMatch } from '@/server/db/queries';
+import { fetchConditions } from '@/server/services/pipeline';
 
 export const maxDuration = 60;
 

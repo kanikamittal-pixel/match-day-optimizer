@@ -1,8 +1,8 @@
 'use client';
 import { useRef, useState } from 'react';
-import { api, imageToPayload } from '@/lib/client';
-import { Banner, Spinner } from './ui';
-import { ROLES } from '@/lib/types';
+import { api, imageToPayload } from '@/client/api';
+import { Banner, Spinner } from '@/client/components/ui';
+import { ROLES } from '@/shared/types';
 
 export interface CreditRow { name: string; team: string; role: string; credit: number | string; prev_credit?: number | null; changed?: boolean }
 

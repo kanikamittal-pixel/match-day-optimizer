@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { HttpError } from './http';
+import { HttpError } from '@/server/http';
 
 const BASE = 'https://api.cricapi.com/v1';
 const limit = () => Number(process.env.CRICKETDATA_DAILY_LIMIT || 95);

@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { must } from './supabase/server';
-import { DEFAULT_RULES, DEFAULT_WEIGHTS } from './weights';
-import type { Candidate, Rules, MatchXI, Role } from './types';
-import { HttpError } from './http';
+import { must } from '@/server/integrations/supabase';
+import { DEFAULT_RULES, DEFAULT_WEIGHTS } from '@/shared/weights';
+import type { Candidate, Rules, MatchXI, Role } from '@/shared/types';
+import { HttpError } from '@/server/http';
 
 /** First-run seeding: rules row and approved weights v1. Rules are never hard-coded elsewhere. */
 export async function ensureSeed(sb: SupabaseClient) {

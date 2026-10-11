@@ -4,6 +4,8 @@ A Dream11 match-day tool for one owner (Aryan). It researches the match, builds 
 
 Stack: Next.js 15 (App Router) on Vercel · Supabase (Postgres + Auth) · Gemini Flash (the only AI) · CricketData.org. No Anthropic/Claude API is used anywhere in the code.
 
+> **Grading guide:** see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a map of every tool in the stack and the folder it lives in. Frontend: `app/` + `client/`. Backend: `app/api/` + `server/`. Pure rules: `shared/`. Database: `supabase/`.
+
 ## Setup
 
 1. **Supabase**: create a project. In the SQL editor run [`supabase/migrations/0001_schema.sql`](supabase/migrations/0001_schema.sql). In *Authentication → Providers → Email* turn **off** "Allow new users to sign up", then add Aryan under *Authentication → Users* (email + password). RLS only admits signed-in users, so with sign-ups off only he can read or write anything.
@@ -39,18 +41,18 @@ Push to GitHub, import in Vercel, add the same variables, deploy. Routes that ca
 
 | Map lane / box | Where it lives |
 |---|---|
-| **Aryan** · picks match, uploads screenshots, contest type | `app/page.tsx`, `app/match/[id]/page.tsx`, `components/CreditsEditor.tsx` |
+| **Aryan** · picks match, uploads screenshots, contest type | `app/page.tsx`, `app/match/[id]/page.tsx`, `client/components/CreditsEditor.tsx` |
 | **Aryan** · reviews & submits (decision gate) | `app/match/[id]/team/page.tsx`, `app/api/matches/[id]/decision/route.ts` |
 | **Aryan** · post-match points | `app/match/[id]/result/page.tsx`, `.../results/route.ts` |
 | **Aryan** · approves/rejects weights | Insights + Settings pages, `app/api/settings/suggestions/route.ts` |
 | **Gemini** · reads credit screenshots | `.../credits/extract/route.ts` |
-| **Gemini** · expected points | `lib/pipeline.ts → predictExpectedPoints`, `.../predict/route.ts` |
-| **Gemini** · C & VC + why per pick | `lib/pipeline.ts → pickCaptains` |
+| **Gemini** · expected points | `server/services/pipeline.ts → predictExpectedPoints`, `.../predict/route.ts` |
+| **Gemini** · C & VC + why per pick | `server/services/pipeline.ts → pickCaptains` |
 | **Gemini** · pattern finder | `app/api/insights/analyze/route.ts` |
-| **Cricket data API** · fixtures, toss, squads | `lib/cricket.ts` (cache + budget), `app/api/matches/route.ts`, `.../xi/route.ts` |
-| **Match Day App** · build XI & validate (code) | `lib/rules.ts` (`buildBestXI`, `validateTeam`, `suggestFixes`) |
+| **Cricket data API** · fixtures, toss, squads | `server/integrations/cricketdata.ts` (cache + budget), `app/api/matches/route.ts`, `.../xi/route.ts` |
+| **Match Day App** · build XI & validate (code) | `shared/rules.ts` (`buildBestXI`, `validateTeam`, `suggestFixes`) |
 | **Match Day App** · team card | `app/match/[id]/team/page.tsx`, `.teamcard` in `globals.css` |
-| **Supabase** · loads memory | `lib/data.ts` (`loadActiveWeights`, `loadPlaybook`), `errorPatternsFor` |
+| **Supabase** · loads memory | `server/db/queries.ts` (`loadActiveWeights`, `loadPlaybook`), `errorPatternsFor` |
 | **Supabase** · saves prediction / predicted vs actual / new weights | tables `predictions`, `actual_points`, `scoring_weights` (versioned) |
 | **Claude Code** | Build-time only. Not referenced at runtime. |
 
@@ -59,7 +61,7 @@ Push to GitHub, import in Vercel, add the same variables, deploy. Routes that ca
 1. **Under 5 minutes**: setup page is a 5-step flow; build is one button.
 2. **Repeated for any match**: matches come from the API or manual entry; nothing is per-match in code.
 3. **Manual fallback for everything that can be late**: credits (type / last-known), XI (tick / paste), fixtures (manual match), conditions (refresh), API budget exhausted (stale cache → manual).
-4. **Valid and specific**: `validateTeam` runs in the builder, after every override, and gates Finalise; `lib/reasons.ts` rejects generic reasons and the prediction call retries up to twice.
+4. **Valid and specific**: `validateTeam` runs in the builder, after every override, and gates Finalise; `shared/reasons.ts` rejects generic reasons and the prediction call retries up to twice.
 5. **Measurable**: Insights shows error per match, C/VC top-3 hit rate (agent vs Aryan), and the Agent vs Aryan scoreboard per situation, with plain-language findings.
 6. **Failure risk**: a missing credit or XI returns HTTP 422 listing the gap, never a guess. Pre-toss runs carry an amber *probable XI* label.
 7. **Judgment protected**: only buttons Aryan presses change weights, playbook rules, or the final team. The agent argues once, never blocks, never re-argues.

@@ -1,8 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { api, fmtDate } from '@/lib/client';
-import { Banner, Spinner } from '@/components/ui';
+import { api, fmtDate } from '@/client/api';
+import { Banner, Spinner } from '@/client/components/ui';
 
 interface M { id: string; name: string; team_a: string; team_b: string; venue: string | null; format: string; starts_at: string | null; has_team: boolean; team_status: string | null; results_in: boolean }
 

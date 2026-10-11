@@ -1,8 +1,8 @@
-import { handle } from '@/lib/http';
-import { must, requireUser } from '@/lib/supabase/server';
-import { evalRows, groupStats, MIN_N } from '@/lib/insights';
-import { loadActiveWeights } from '@/lib/data';
-import { gemini, parseJson, S } from '@/lib/gemini';
+import { handle } from '@/server/http';
+import { must, requireUser } from '@/server/integrations/supabase';
+import { evalRows, groupStats, MIN_N } from '@/server/services/insights';
+import { loadActiveWeights } from '@/server/db/queries';
+import { gemini, parseJson, S } from '@/server/integrations/gemini';
 
 export const maxDuration = 60;
 

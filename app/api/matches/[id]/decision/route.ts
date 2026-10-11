@@ -1,8 +1,8 @@
-import { handle, HttpError } from '@/lib/http';
-import { must, requireUser } from '@/lib/supabase/server';
-import { eligibleKeys, loadCredits, loadMatch, loadRules, situationKey, toCandidates } from '@/lib/data';
-import { suggestFixes, validateTeam, creditsUsed } from '@/lib/rules';
-import type { DecisionEntry, FinalTeam, Recommended } from '@/lib/types';
+import { handle, HttpError } from '@/server/http';
+import { must, requireUser } from '@/server/integrations/supabase';
+import { eligibleKeys, loadCredits, loadMatch, loadRules, situationKey, toCandidates } from '@/server/db/queries';
+import { suggestFixes, validateTeam, creditsUsed } from '@/shared/rules';
+import type { DecisionEntry, FinalTeam, Recommended } from '@/shared/types';
 
 type Change = { kind: 'swap' | 'captain' | 'vice'; from: string; to: string };
 

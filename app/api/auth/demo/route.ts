@@ -1,5 +1,5 @@
-import { handle, HttpError } from '@/lib/http';
-import { supabaseServer } from '@/lib/supabase/server';
+import { handle, HttpError } from '@/server/http';
+import { supabaseServer } from '@/server/integrations/supabase';
 
 const enabled = () => process.env.DEMO_MODE === 'true' && !!process.env.DEMO_EMAIL && !!process.env.DEMO_PASSWORD;
 

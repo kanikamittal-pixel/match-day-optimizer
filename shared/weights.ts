@@ -1,4 +1,4 @@
-import type { Rules } from './types';
+import type { Rules } from '@/shared/types';
 
 export const DEFAULT_RULES: Rules = {
   credit_cap: 100,

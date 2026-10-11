@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildBestXI, suggestFixes, validateTeam } from '../lib/rules';
-import { isGenericReason } from '../lib/reasons';
-import { matchName } from '../lib/names';
-import { DEFAULT_RULES } from '../lib/weights';
-import type { Candidate, Role } from '../lib/types';
+import { buildBestXI, suggestFixes, validateTeam } from '@/shared/rules';
+import { isGenericReason } from '@/shared/reasons';
+import { matchName } from '@/shared/names';
+import { DEFAULT_RULES } from '@/shared/weights';
+import type { Candidate, Role } from '@/shared/types';
 
 let i = 0;
 const mk = (team: string, role: Role, credit: number, xp: number): Candidate => {

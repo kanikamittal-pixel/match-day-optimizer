@@ -1,6 +1,6 @@
-import { handle } from '@/lib/http';
-import { must, requireUser } from '@/lib/supabase/server';
-import { loadCredits, loadMatch, loadRules, loadActiveWeights } from '@/lib/data';
+import { handle } from '@/server/http';
+import { must, requireUser } from '@/server/integrations/supabase';
+import { loadCredits, loadMatch, loadRules, loadActiveWeights } from '@/server/db/queries';
 
 export const GET = handle(async (_req: Request, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;

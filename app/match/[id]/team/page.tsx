@@ -2,10 +2,10 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { api } from '@/lib/client';
-import { Banner, Sheet, Spinner, short, useToast } from '@/components/ui';
-import { ROLES } from '@/lib/types';
-import { creditsUsed, validateTeam } from '@/lib/rules';
+import { api } from '@/client/api';
+import { Banner, Sheet, Spinner, short, useToast } from '@/client/components/ui';
+import { ROLES } from '@/shared/types';
+import { creditsUsed, validateTeam } from '@/shared/rules';
 
 type Pending = { change: { kind: 'swap' | 'captain' | 'vice'; from: string; to: string }; preview: any } | null;
 const WHY = ['Venue record', 'Pitch', 'Matchup', 'Team news', 'Balance'];

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/client';
-import { Banner, Spinner } from '@/components/ui';
+import { api } from '@/client/api';
+import { Banner, Spinner } from '@/client/components/ui';
 
 export default function Login() {
   const [email, setEmail] = useState('');

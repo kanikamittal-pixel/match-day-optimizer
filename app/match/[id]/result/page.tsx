@@ -2,8 +2,8 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api } from '@/lib/client';
-import { Banner, Spinner, short } from '@/components/ui';
+import { api } from '@/client/api';
+import { Banner, Spinner, short } from '@/client/components/ui';
 
 export default function Results() {
   const { id } = useParams<{ id: string }>();

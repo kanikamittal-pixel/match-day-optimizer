@@ -1,5 +1,5 @@
-import { handle, HttpError } from '@/lib/http';
-import { must, requireUser } from '@/lib/supabase/server';
+import { handle, HttpError } from '@/server/http';
+import { must, requireUser } from '@/server/integrations/supabase';
 
 export const GET = handle(async () => {
   const { sb } = await requireUser();

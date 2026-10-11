@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/client';
-import { Banner, Spinner, useToast } from '@/components/ui';
+import { api } from '@/client/api';
+import { Banner, Spinner, useToast } from '@/client/components/ui';
 
 export default function Insights() {
   const [d, setD] = useState<any>(null);

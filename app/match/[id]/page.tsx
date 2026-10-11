@@ -2,10 +2,10 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api, ApiError, fmtDate } from '@/lib/client';
-import { Banner, Spinner } from '@/components/ui';
-import CreditsEditor from '@/components/CreditsEditor';
-import XIEditor from '@/components/XIEditor';
+import { api, ApiError, fmtDate } from '@/client/api';
+import { Banner, Spinner } from '@/client/components/ui';
+import CreditsEditor from '@/client/components/CreditsEditor';
+import XIEditor from '@/client/components/XIEditor';
 
 export default function MatchSetup() {
   const { id } = useParams<{ id: string }>();

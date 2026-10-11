@@ -1,8 +1,8 @@
-import { handle, HttpError } from '@/lib/http';
-import { must, requireUser } from '@/lib/supabase/server';
-import { loadMatch } from '@/lib/data';
-import { gemini, parseJson, S } from '@/lib/gemini';
-import { nameKey } from '@/lib/names';
+import { handle, HttpError } from '@/server/http';
+import { must, requireUser } from '@/server/integrations/supabase';
+import { loadMatch } from '@/server/db/queries';
+import { gemini, parseJson, S } from '@/server/integrations/gemini';
+import { nameKey } from '@/shared/names';
 
 export const maxDuration = 60;
 

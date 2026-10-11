@@ -1,5 +1,5 @@
-import { handle } from '@/lib/http';
-import { supabaseServer } from '@/lib/supabase/server';
+import { handle } from '@/server/http';
+import { supabaseServer } from '@/server/integrations/supabase';
 
 export const POST = handle(async () => {
   const sb = await supabaseServer();

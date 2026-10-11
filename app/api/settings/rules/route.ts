@@ -1,7 +1,7 @@
-import { handle, HttpError } from '@/lib/http';
-import { must, requireUser } from '@/lib/supabase/server';
-import { loadRules } from '@/lib/data';
-import { ROLES } from '@/lib/types';
+import { handle, HttpError } from '@/server/http';
+import { must, requireUser } from '@/server/integrations/supabase';
+import { loadRules } from '@/server/db/queries';
+import { ROLES } from '@/shared/types';
 
 export const GET = handle(async () => {
   const { sb } = await requireUser();

@@ -1,10 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { gemini, parseJson, S } from './gemini';
-import { findGeneric } from './reasons';
-import { HttpError } from './http';
-import type { Candidate, ContestType, PitchType } from './types';
-import { loadPlaybook } from './data';
-import { situationKey } from './data';
+import { gemini, parseJson, S } from '@/server/integrations/gemini';
+import { findGeneric } from '@/shared/reasons';
+import { HttpError } from '@/server/http';
+import type { Candidate, ContestType, PitchType } from '@/shared/types';
+import { loadPlaybook } from '@/server/db/queries';
+import { situationKey } from '@/server/db/queries';
 
 const PITCH: PitchType[] = ['batting_friendly', 'pace_friendly', 'spin_friendly', 'slow_low', 'balanced'];
 

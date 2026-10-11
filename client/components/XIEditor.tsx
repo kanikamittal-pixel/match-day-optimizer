@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
-import { api } from '@/lib/client';
-import { Banner, Spinner } from './ui';
+import { api } from '@/client/api';
+import { Banner, Spinner } from '@/client/components/ui';
 
 interface P { name_key: string; name: string; team: string; role: string }
 interface XI { teamA: string[]; teamB: string[]; impact: string[]; confirmed: boolean; source: string }

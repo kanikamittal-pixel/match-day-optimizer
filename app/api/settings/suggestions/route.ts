@@ -1,6 +1,6 @@
-import { handle, HttpError } from '@/lib/http';
-import { must, requireUser } from '@/lib/supabase/server';
-import { loadActiveWeights } from '@/lib/data';
+import { handle, HttpError } from '@/server/http';
+import { must, requireUser } from '@/server/integrations/supabase';
+import { loadActiveWeights } from '@/server/db/queries';
 
 export const GET = handle(async () => {
   const { sb } = await requireUser();

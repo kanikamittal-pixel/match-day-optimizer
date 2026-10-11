@@ -1,5 +1,5 @@
-import { handle, HttpError } from '@/lib/http';
-import { supabaseServer } from '@/lib/supabase/server';
+import { handle, HttpError } from '@/server/http';
+import { supabaseServer } from '@/server/integrations/supabase';
 
 export const POST = handle(async (req: Request) => {
   const { email, password } = await req.json();

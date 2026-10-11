@@ -1,8 +1,8 @@
-import { handle, HttpError } from '@/lib/http';
-import { must, requireUser } from '@/lib/supabase/server';
-import { loadMatch } from '@/lib/data';
-import { nameKey } from '@/lib/names';
-import { ROLES } from '@/lib/types';
+import { handle, HttpError } from '@/server/http';
+import { must, requireUser } from '@/server/integrations/supabase';
+import { loadMatch } from '@/server/db/queries';
+import { nameKey } from '@/shared/names';
+import { ROLES } from '@/shared/types';
 
 /** Prefill: last known credits for players on either team, so Aryan only corrects changes. */
 export const GET = handle(async (_req: Request, { params }: { params: Promise<{ id: string }> }) => {

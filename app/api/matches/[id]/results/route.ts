@@ -1,6 +1,6 @@
-import { handle, HttpError } from '@/lib/http';
-import { must, requireUser } from '@/lib/supabase/server';
-import type { FinalTeam, Recommended } from '@/lib/types';
+import { handle, HttpError } from '@/server/http';
+import { must, requireUser } from '@/server/integrations/supabase';
+import type { FinalTeam, Recommended } from '@/shared/types';
 
 /** The post-match list: final XI plus any recommended player Aryan dropped, so both judgements are scored. */
 export const GET = handle(async (_req: Request, { params }: { params: Promise<{ id: string }> }) => {

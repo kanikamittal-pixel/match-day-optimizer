@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/client';
-import { Banner, Spinner, useToast } from '@/components/ui';
-import { ROLES } from '@/lib/types';
+import { api } from '@/client/api';
+import { Banner, Spinner, useToast } from '@/client/components/ui';
+import { ROLES } from '@/shared/types';
 
 export default function Settings() {
   const [rules, setRules] = useState<any>(null);
