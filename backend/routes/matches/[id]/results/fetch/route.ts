@@ -28,7 +28,7 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   const cid = await scorecardId(sb, id, m);
   if (!cid) throw new HttpError(404, 'No scorecard source found for this match, so results can’t be fetched. Enter the points by hand.', { manual: true });
 
-  const sc = await cricket<any>(sb, 'match_scorecard', { id: cid }, TTL.scorecard);
+  const sc = await cricket<any>(sb, 'match_scorecard', { id: cid }, TTL.scorecard, false, true);
   const d = sc.data.data ?? {};
   if (!d.scorecard?.length) throw new HttpError(409, d.matchStarted ? 'The scorecard is empty so far. Try again once the match has progressed.' : 'The match hasn’t started yet, so there are no results to fetch.');
 

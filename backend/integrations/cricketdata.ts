@@ -1,11 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { HttpError } from '@/backend/http';
+import { callAllowed } from '@/shared/budget';
 
 const BASE = 'https://api.cricapi.com/v1';
 const limit = () => Number(process.env.CRICKETDATA_DAILY_LIMIT || 95);
 
 export const TTL = {
-  matches: 30 * 60,
+  matches: 2 * 3600, // fixtures: refreshed every 2 hours at most, to leave quota for scorecards
   matchInfo: 5 * 60,
   squad: 6 * 3600,
   player: 7 * 24 * 3600,
@@ -30,6 +31,7 @@ export async function cricket<T = any>(
   params: Record<string, string>,
   ttl: number,
   force = false,
+  essential = false, // scorecards for results / history top-up: allowed to use the reserved part of the daily quota
 ): Promise<{ data: T; fromCache: boolean; stale: boolean }> {
   const key = `cd:${endpoint}:${new URLSearchParams(params).toString()}`;
   const { data: row } = await sb.from('api_cache').select('payload,fetched_at,ttl_seconds').eq('key', key).maybeSingle();
@@ -44,7 +46,7 @@ export async function cricket<T = any>(
   if (!apikey) return serveStale('CRICKETDATA_API_KEY is not set. Enter this data manually.');
 
   const { hits } = await usageToday(sb);
-  if (hits >= limit()) return serveStale(`Daily CricketData budget used (${hits}/${limit()}). Enter this data manually.`);
+  if (!callAllowed(hits, limit(), essential)) return serveStale(essential ? `Daily CricketData budget used (${hits}/${limit()}). Enter this data manually.` : `CricketData budget is being kept for scorecards (${hits}/${limit()} used today).`);
 
   const qs = new URLSearchParams({ apikey, ...params });
   let json: any;

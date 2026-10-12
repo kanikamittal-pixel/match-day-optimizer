@@ -29,7 +29,8 @@ export default function DataCheck() {
 
       {st?.history?.latest && Date.now() - new Date(st.history.latest).getTime() > 2 * 86400000 && (
         <Banner kind="warn">
-          <b>Known gap.</b> The history runs through {latest}, and {st.history.topUpRows ? `${st.history.topUpRows} rows from newer matches have been added from CricketData.` : 'newer matches are not in it yet (for example the Pakistan v Sri Lanka T20Is on 9 and 11 October).'} The daily refresh adds finished T20s from CricketData scorecards until Cricsheet publishes them; it could not run today because CricketData's free daily quota was used up, so it will run at the next refresh.
+          <b>Known gap.</b> The history runs through {latest}, and {st.history.topUpRows ? `${st.history.topUpRows} rows from newer matches have been added from CricketData.` : 'newer matches are not in it yet (for example the Pakistan v Sri Lanka T20Is on 9 and 11 October).'} The daily refresh adds finished T20s from CricketData scorecards until Cricsheet publishes them, and retries every day.
+          {st.history.pending?.length > 0 && (<div style={{ marginTop: 6 }}><b>Waiting now:</b>{st.history.pending.map((p: any) => <div key={p.id} className="sub">• {p.date} · {p.title.split(',')[0]} ({p.reason})</div>)}</div>)}
         </Banner>
       )}
 

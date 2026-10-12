@@ -13,19 +13,21 @@ import { matchStrictAliases, nameKey } from '@/shared/names';
 const stripWomen = (t: string) => t.replace(/\s+(women('s)?|w)\s*$/i, '').trim();
 const shift = (iso: string, days: number) => new Date(new Date(iso).getTime() + days * 86400000).toISOString().slice(0, 10);
 
-export interface TopUpResult { added: { id: string; title: string; date: string; players: number }[]; skipped: string[]; reconciled: number; note?: string }
+export interface PendingMatch { id: string; title: string; date: string; reason: string }
+export interface TopUpResult { pending: PendingMatch[]; added: { id: string; title: string; date: string; players: number }[]; skipped: string[]; reconciled: number; note?: string }
 
 export async function topUpFromCricketData(sb: SupabaseClient, maxMatches = 6): Promise<TopUpResult> {
-  const out: TopUpResult = { added: [], skipped: [], reconciled: 0 };
+  const out: TopUpResult = { added: [], skipped: [], reconciled: 0, pending: [] };
   const { data: last } = await sb.from('player_match_points').select('played_on').not('match_ref', 'like', 'cd-%').order('played_on', { ascending: false }).limit(1);
   const latest: string = last?.[0]?.played_on ?? '2000-01-01';
   let list: any[] = [];
-  try { list = ((await cricket<any>(sb, 'currentMatches', { offset: '0' }, TTL.matches)).data.data ?? []) as any[]; } catch (e: any) { out.note = `CricketData fixtures unavailable: ${e?.message ?? e}`; return out; }
+  try { list = ((await cricket<any>(sb, 'currentMatches', { offset: '0' }, TTL.matches, false, true)).data.data ?? []) as any[]; } catch (e: any) { out.note = `CricketData fixtures unavailable: ${e?.message ?? e}`; return out; }
 
   const done = new Set(((await sb.from('player_match_points').select('match_ref').like('match_ref', 'cd-%')).data ?? []).map((r: any) => r.match_ref));
   const aliases = await loadAliases(sb);
   const cands = list.filter((m) => m.matchEnded && /t20/i.test(String(m.matchType)) && Array.isArray(m.teams) && m.teams.length === 2 && String(m.dateTimeGMT).slice(0, 10) > latest && !done.has(`cd-${m.id}`));
 
+  const addedIds = new Set<string>();
   for (const m of cands.slice(0, maxMatches)) {
     const date = String(m.dateTimeGMT).slice(0, 10);
     const women = m.teams.some((t: string) => /women/i.test(t));
@@ -35,7 +37,7 @@ export async function topUpFromCricketData(sb: SupabaseClient, maxMatches = 6): 
     const { data: dup } = await sb.from('player_match_points').select('match_ref').in('team', teams).eq('gender', gender).gte('played_on', shift(date, -1)).lte('played_on', shift(date, 1)).not('match_ref', 'like', 'cd-%').limit(1);
     if (dup?.length) { out.skipped.push(`${m.name}: already in Cricsheet`); continue; }
     let card: any;
-    try { card = (await cricket<any>(sb, 'match_scorecard', { id: m.id }, TTL.scorecard)).data.data; } catch (e: any) { out.skipped.push(`${m.name}: ${e?.message ?? 'scorecard unavailable'}`); break; }
+    try { card = (await cricket<any>(sb, 'match_scorecard', { id: m.id }, TTL.scorecard, false, true)).data.data; } catch (e: any) { out.skipped.push(`${m.name}: ${e?.message ?? 'scorecard unavailable'}`); break; }
     if (!card?.scorecard?.length) { out.skipped.push(`${m.name}: empty scorecard`); continue; }
 
     // who belongs to which side, and batting order
@@ -70,8 +72,13 @@ export async function topUpFromCricketData(sb: SupabaseClient, maxMatches = 6): 
     const { error } = await sb.from('player_match_points').upsert(rows, { onConflict: 'match_ref,team,name_key' });
     if (error) { out.skipped.push(`${m.name}: ${error.message}`); continue; }
     out.added.push({ id: m.id, title: m.name, date, players: rows.length });
+    addedIds.add(m.id);
   }
   out.reconciled = await reconcile(sb);
+  // The waiting list: finished T20s newer than Cricsheet that we could not add yet. Retried at every refresh.
+  const reasonFor = (id: string) => out.skipped.find((x) => x.includes(String(list.find((m) => m.id === id)?.name ?? '~'))) ?? 'waiting for the next refresh';
+  out.pending = cands.filter((m) => !addedIds.has(m.id) && !out.skipped.some((x) => x.endsWith('already in Cricsheet') && x.startsWith(String(m.name)))).map((m) => ({ id: m.id, title: String(m.name), date: String(m.dateTimeGMT).slice(0, 10), reason: reasonFor(m.id).replace(String(m.name) + ': ', '') }));
+  await sb.from('api_cache').upsert({ key: 'cd:pending', payload: { at: new Date().toISOString(), items: out.pending }, fetched_at: new Date().toISOString(), ttl_seconds: 7 * 86400 });
   return out;
 }
 
