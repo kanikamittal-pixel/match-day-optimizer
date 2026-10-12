@@ -32,7 +32,7 @@ export default function CreditsEditor({ matchId, teams, initial, onSaved }: { ma
 
   async function prefill() {
     setBusy('Loading last known credits…');
-    try { const { rows: r } = await api(`/api/matches/${matchId}/credits`); setRows(r); setSaved(false); } catch (e: any) { setErr(e.message); }
+    try { const { rows: r, apiSquad } = await api(`/api/matches/${matchId}/credits`); setRows(r); setSaved(false); if (!r.length) setErr('No squad or past credits found for this match. Upload a Dream11 screenshot or type the players in.'); else if (apiSquad) setErr(`${apiSquad} real squad players loaded from the cricket API. Add their credits.`); } catch (e: any) { setErr(e.message); }
     setBusy('');
   }
 
@@ -48,7 +48,7 @@ export default function CreditsEditor({ matchId, teams, initial, onSaved }: { ma
       <div className="row" style={{ flexWrap: 'wrap' }}>
         <input ref={file} type="file" accept="image/*" multiple hidden onChange={(e) => onFiles(e.target.files)} />
         <button className="btn primary" onClick={() => file.current?.click()} disabled={!!busy}>Upload 1–3 screenshots</button>
-        <button className="btn ghost" onClick={prefill} disabled={!!busy}>Use last known credits</button>
+        <button className="btn ghost" onClick={prefill} disabled={!!busy}>Load squad & last credits</button>
         <button className="btn ghost" onClick={() => { setRows([...rows, { name: '', team: teams[0], role: 'BAT', credit: '' }]); setSaved(false); }}>+ Player</button>
       </div>
       {busy && <p className="sub"><Spinner /> {busy}</p>}

@@ -1,6 +1,7 @@
 import { handle, HttpError } from '@/server/http';
 import { must, requireUser } from '@/server/integrations/supabase';
 import { cricket, formatOf, TTL, usageToday } from '@/server/integrations/cricketdata';
+import { rapid, rapidUsage, parseSchedule, RAPID_TTL } from '@/server/integrations/rapidapi';
 import { ensureSeed } from '@/server/db/queries';
 
 export const maxDuration = 30;
@@ -31,6 +32,23 @@ export const GET = handle(async (req: Request) => {
     apiNote = e instanceof HttpError ? e.message : 'Could not reach CricketData.';
   }
 
+  // Second source: RapidAPI schedule (upcoming fixtures CricketData's free feed lacks). Deduped by teams + day.
+  let rapidNote: string | null = null;
+  try {
+    const { data: cd } = await sb.from('matches').select('team_a,team_b,starts_at').not('id', 'like', 'rb-%');
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const seen = new Set((cd ?? []).map((m: any) => `${norm(m.team_a)}|${norm(m.team_b)}|${String(m.starts_at).slice(0, 10)}`));
+    const { data: sched, stale } = await rapid<any>(sb, 'cricket-schedule', RAPID_TTL.schedule, force);
+    if (stale) rapidNote = 'Showing cached RapidAPI schedule.';
+    const horizon = Date.now() + 3 * 24 * 3600 * 1000;
+    const rows = parseSchedule(sched)
+      .filter((m) => new Date(m.starts_at).getTime() < horizon)
+      .filter((m) => !seen.has(`${norm(m.team_a)}|${norm(m.team_b)}|${m.starts_at.slice(0, 10)}`));
+    if (rows.length) must(await sb.from('matches').upsert(rows, { onConflict: 'id' }), 'save rapid matches');
+  } catch (e) {
+    rapidNote = e instanceof HttpError ? e.message : 'RapidAPI unavailable.';
+  }
+
   const since = new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString();
   const matches = must(
     await sb.from('matches').select('id,name,team_a,team_b,venue,format,starts_at,status,contest_type,xi').or(`starts_at.gte.${since},starts_at.is.null`).order('starts_at', { ascending: true, nullsFirst: false }).limit(60),
@@ -43,11 +61,25 @@ export const GET = handle(async (req: Request) => {
   const awaitingIds = decisions.filter((d) => d.status === 'final' && !hasActuals.has(d.match_id)).map((d) => d.match_id);
   const awaiting = awaitingIds.length ? must(await sb.from('matches').select('id,name,starts_at').in('id', awaitingIds), 'awaiting') : [];
 
+  // Phase comes from the API status text plus the start time, so finished matches never read "Not started".
+  const DONE = /\b(won by|won the match|match drawn|drawn|tied|no result|abandoned|match ended|completed|result)\b/i;
+  const phaseOf = (m: any): 'completed' | 'live' | 'upcoming' => {
+    if (m.status && DONE.test(m.status)) return 'completed';
+    if (m.starts_at && new Date(m.starts_at).getTime() <= Date.now()) return 'live';
+    return 'upcoming';
+  };
+  const withPhase = (matches as any[]).map((m) => ({ ...m, phase: phaseOf(m), has_team: dec.has(m.id), team_status: dec.get(m.id)?.status ?? null, results_in: hasActuals.has(m.id) }));
+  // Hide finished matches Aryan never worked on; keep ones with a team so results can still be entered.
+  const visible = withPhase
+    .filter((m) => m.phase !== 'completed' || m.has_team)
+    .sort((a, b) => Number(a.format === 'TEST') - Number(b.format === 'TEST') || String(a.starts_at).localeCompare(String(b.starts_at)));
+
   return {
-    matches: (matches as any[]).map((m) => ({ ...m, has_team: dec.has(m.id), team_status: dec.get(m.id)?.status ?? null, results_in: hasActuals.has(m.id) })),
+    matches: visible,
     awaiting,
     usage: await usageToday(sb),
-    apiNote,
+    rapidUsage: await rapidUsage(sb),
+    apiNote: [apiNote, rapidNote].filter(Boolean).join(' ') || null,
   };
 });
 

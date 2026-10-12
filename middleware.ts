@@ -2,6 +2,14 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
+  if (process.env.OPEN_ACCESS === 'true') {
+    if (req.nextUrl.pathname === '/login') {
+      const url = req.nextUrl.clone();
+      url.pathname = '/';
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
   let res = NextResponse.next({ request: req });
   const sb = createServerClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, {
     cookies: {

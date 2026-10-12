@@ -47,7 +47,7 @@ export const POST = handle(async (req: Request, { params }: { params: Promise<{ 
   const { id } = await params;
   const { sb } = await requireUser();
   const m = await loadMatch(sb, id);
-  if (id.startsWith('manual-')) throw new HttpError(400, 'Manual matches have no API data. Enter the XI by hand.', { manualFallback: true });
+  if (id.startsWith('manual-') || id.startsWith('rb-')) throw new HttpError(400, 'Manual matches have no API data. Enter the XI by hand.', { manualFallback: true });
   const force = new URL(req.url).searchParams.get('force') === '1';
   const info = await cricket<any>(sb, 'match_info', { id }, TTL.matchInfo, force);
   const d = info.data.data ?? {};

@@ -24,6 +24,8 @@ export async function supabaseServer(): Promise<SupabaseClient> {
 
 export async function requireUser(): Promise<{ sb: SupabaseClient; user: User }> {
   const sb = await supabaseServer();
+  // Open-access mode (reviewer demo): no login, the database is reached as the anon role.
+  if (process.env.OPEN_ACCESS === 'true') return { sb, user: { id: 'open-access' } as User };
   const { data } = await sb.auth.getUser();
   if (!data.user) throw new HttpError(401, 'Not signed in.');
   return { sb, user: data.user };

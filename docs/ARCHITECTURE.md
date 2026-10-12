@@ -31,6 +31,7 @@ One Next.js project, split into clearly separated layers. Each tool in the stack
 | **Next.js 15 + React 19 + TypeScript** | Frontend and API routes | `app/`, `client/`, `server/` |
 | **Gemini Flash** (Google AI) | Screenshot reading, Search-grounded conditions, expected points, captains, pattern finder | `server/integrations/gemini.ts` (client), `server/services/pipeline.ts` and `app/api/insights/analyze/` (prompts) |
 | **CricketData.org** | Fixtures, toss, squads | `server/integrations/cricketdata.ts` (cache + 95/day budget) |
+| **RapidAPI: Free Cricbuzz Cricket API** | Upcoming fixtures (second source, deduped against CricketData) | `server/integrations/rapidapi.ts` (cache + 90/month budget) |
 | **Supabase** (Postgres + Auth) | All data storage and login | `server/integrations/supabase.ts`, `server/db/`, `supabase/migrations/` (schema) |
 | **Vercel** | Hosting | `next.config.mjs`, env vars in the Vercel dashboard |
 | **Vitest** | Tests of the rules engine | `tests/`, `vitest.config.ts` |
