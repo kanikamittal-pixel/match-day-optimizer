@@ -117,43 +117,72 @@ export default function TeamPage() {
       )}
       {rec.cvc_source === 'fallback' && <Banner kind="warn">Captain picks fell back to the two highest expected scorers (AI pick could not be validated).</Banner>}
 
-      <div className="teamcard" ref={card}>
-        <div className="tc-head">
-          <div><div className="tc-title">{m.team_a} vs {m.team_b}</div><div className="sub">{m.format} · {m.venue ?? 'Venue TBC'} · {pre ? 'PRE-TOSS' : 'FINAL XI'}</div></div>
-          <span className="pill ok">{m.contest_type === 'small' ? 'Small league' : 'Grand league'}</span>
+      <div className="d-pitch" ref={card}>
+        <div className="d-head">
+          <div>
+            <div className="d-title">{m.team_a} vs {m.team_b}</div>
+            <div className="d-sub">{m.format} · {m.venue ?? 'Venue TBC'} · {pre ? 'PRE-TOSS XI' : 'FINAL XI'}</div>
+          </div>
+          <span className="d-chip">{m.contest_type === 'small' ? 'Small league' : 'Grand league'}</span>
         </div>
-        <div className="tc-meta">
-          <div className="stat"><div className="k">Credits used</div><div className="v num">{unchecked ? '—' : view.credits}</div></div>
-          <div className="stat"><div className="k">Credits left</div><div className="v num" style={{ color: left < 0 && !unchecked ? 'var(--red)' : undefined }}>{unchecked ? '—' : left}</div></div>
-          <div className="stat"><div className="k">Expected pts</div><div className="v num">{view.totalXp}</div></div>
+        <div className="d-bar">
+          <div><small>Players</small><b className="num">{view.xi.length}/11</b></div>
+          <div className="d-mid"><span className="d-code">{short(m.team_a)}</span><b className="num">{view.xi.filter((p: any) => p.team === m.team_a).length} : {view.xi.filter((p: any) => p.team === m.team_b).length}</b><span className="d-code b">{short(m.team_b)}</span></div>
+          <div style={{ textAlign: 'right' }}><small>Credits left</small><b className="num" style={{ color: left < 0 && !unchecked ? 'var(--red)' : undefined }}>{unchecked ? '—' : left}</b></div>
         </div>
-        {ROLES.map((r) => {
-          const ps = view.xi.filter((p: any) => p.role === r);
-          if (!ps.length) return null;
-          return (
-            <div key={r}>
-              <div className="tc-role">{r} · {ps.length}</div>
-              {ps.map((p: any) => (
-                <div key={p.key} className="pl" onClick={() => !final && setSheet({ type: 'player', key: p.key })}>
-                  <div className="n">
-                    {p.name}
-                    {p.key === view.fin.captain && <span className="badge-c">C</span>}
-                    {p.key === view.fin.vc && <span className="badge-vc">VC</span>}
-                    <span className="tm">{short(p.team)}</span>
-                    {tagOf(p) !== 'agent' && <span className={`tag ${tagOf(p)}`}>{tagOf(p)}</span>}
-                  </div>
-                  <div className="xp num">{p.xp}<small>{cr(p.credit)}</small></div>
-                  <div className="r">{p.reason}</div>
-                  <div className="r" style={{ color: 'var(--mute)', fontSize: 12 }}>{p.career ?? 'Career stats: not found'} · {p.form}</div>
+        <div className="d-field">
+          {([['WK', 'WICKET-KEEPERS'], ['BAT', 'BATTERS'], ['AR', 'ALL-ROUNDERS'], ['BOWL', 'BOWLERS']] as const).map(([r, label]) => {
+            const ps = view.xi.filter((p: any) => p.role === r);
+            if (!ps.length) return null;
+            return (
+              <div key={r} className="d-group">
+                <div className="d-role">{label}</div>
+                <div className="d-row">
+                  {ps.map((p: any) => {
+                    const init = p.name.replace(/\(.*?\)/g, '').trim().split(/\s+/).map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+                    const last = p.name.replace(/\(.*?\)/g, '').trim();
+                    return (
+                      <div key={p.key} className="d-pl" onClick={() => !final && setSheet({ type: 'player', key: p.key })}>
+                        <div className={`d-av ${p.team === m.team_a ? 'ta' : 'tb'}`}>
+                          {init}
+                          {p.key === view.fin.captain && <span className="d-badge c">C</span>}
+                          {p.key === view.fin.vc && <span className="d-badge vc">VC</span>}
+                        </div>
+                        <div className="d-name">{last}</div>
+                        <div className="d-cr">{p.credit > 0 ? `${p.credit} Cr` : `${p.xp} xP`}</div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          );
-        })}
-        <div className="cap-reason">
-          <b>{cap.name} (C){view.mk(view.fin.vc).name ? ` · ${view.mk(view.fin.vc).name} (VC)` : ''}</b>
-          <div style={{ marginTop: 4 }}>{capChanged ? 'Captain changed by you.' : rec.captain_reason}</div>
+              </div>
+            );
+          })}
         </div>
+        <div className="d-foot"><span>Expected <b className="num">{view.totalXp}</b> pts</span><span>C {cap.name} · VC {view.mk(view.fin.vc).name}</span></div>
+      </div>
+
+      <h2>Why these picks</h2>
+      <div className="card flat">
+        {ROLES.flatMap((r) => view.xi.filter((p: any) => p.role === r)).map((p: any) => (
+          <div key={p.key} className="why" onClick={() => !final && setSheet({ type: 'player', key: p.key })}>
+            <div className="row sb">
+              <div className="n">
+                {p.name}
+                {p.key === view.fin.captain && <span className="badge-c">C</span>}
+                {p.key === view.fin.vc && <span className="badge-vc">VC</span>}
+                <span className="tm">{p.role} · {short(p.team)}</span>
+                {tagOf(p) !== 'agent' && <span className={`tag ${tagOf(p)}`}>{tagOf(p)}</span>}
+              </div>
+              <div className="xp num">{p.xp}</div>
+            </div>
+            <div className="r">{p.reason}</div>
+            <div className="r dim">{p.career ?? 'Career stats: not found'} · {p.form}</div>
+          </div>
+        ))}
+      </div>
+      <div className="card" style={{ marginTop: 10 }}>
+        <b>{cap.name} (C) · {view.mk(view.fin.vc).name} (VC)</b>
+        <div style={{ marginTop: 4 }}>{capChanged ? 'Captain changed by you.' : rec.captain_reason}</div>
       </div>
 
       {view.benchAll.length > 0 && (

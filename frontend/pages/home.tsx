@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api, fmtDate } from '@/frontend/api';
-import { Banner, Spinner } from '@/frontend/components/ui';
+import { Banner, Spinner, short } from '@/frontend/components/ui';
 
 interface M { id: string; name: string; team_a: string; team_b: string; venue: string | null; format: string; starts_at: string | null; status: string | null; phase: 'completed' | 'live' | 'upcoming'; has_team: boolean; team_status: string | null; results_in: boolean }
 
@@ -52,9 +52,14 @@ export default function Home() {
             {list.map((m) => (
               <Link key={m.id} href={m.results_in ? `/match/${m.id}/team` : `/match/${m.id}`} className="card match" style={{ display: 'block' }}>
             <div className="row sb">
-              <div className="t">{m.team_a} <span className="sub">vs</span> {m.team_b}</div>
+              <div className="row" style={{ gap: 8 }}>
+                <span className="d-code">{short(m.team_a)}</span>
+                <b className="vs">VS</b>
+                <span className="d-code b">{short(m.team_b)}</span>
+              </div>
               <span className="pill">{m.format}</span>
             </div>
+            <div className="t" style={{ marginTop: 8 }}>{m.team_a} <span className="sub">vs</span> {m.team_b}</div>
             <div className="sub" style={{ marginTop: 4 }}>{fmtDate(m.starts_at)}{m.venue ? ` · ${m.venue}` : ''}</div>
               {m.status && <div className="sub" style={{ marginTop: 2 }}>{m.status}</div>}
             <div className="row" style={{ marginTop: 8 }}>

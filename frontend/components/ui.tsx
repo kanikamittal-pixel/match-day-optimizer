@@ -29,10 +29,8 @@ export function useToast() {
   return [msg ? <div className="toast">{msg}</div> : null, setMsg] as const;
 }
 
-export const short = (team: string) =>
-  team
-    .split(/\s+/)
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 3)
-    .toUpperCase();
+export const short = (team: string) => {
+  const words = team.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 1) return words[0].slice(0, 3).toUpperCase(); // Pakistan -> PAK
+  return words.map((w) => w[0]).join('').slice(0, 3).toUpperCase(); // Sri Lanka -> SL
+};

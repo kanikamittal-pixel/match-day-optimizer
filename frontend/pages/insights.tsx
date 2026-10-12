@@ -69,7 +69,7 @@ export default function Insights() {
         <div className="card flat">
           <table className="t"><thead><tr><th>Situation</th><th className="r">n</th><th className="r">Agent</th><th className="r">You</th></tr></thead>
             <tbody>{d.scoreboard.map((s: any) => (
-              <tr key={s.situation}><td>{s.situation}</td><td className="r num">{s.n}</td><td className="r num" style={{ color: s.agent > s.aryan ? 'var(--accent)' : undefined }}>{s.agent}</td><td className="r num" style={{ color: s.aryan > s.agent ? 'var(--accent)' : undefined }}>{s.aryan}</td></tr>
+              <tr key={s.situation}><td>{s.situation}</td><td className="r num">{s.n}</td><td className="r num" style={{ color: s.agent > s.aryan ? 'var(--good)' : undefined }}>{s.agent}</td><td className="r num" style={{ color: s.aryan > s.agent ? 'var(--good)' : undefined }}>{s.aryan}</td></tr>
             ))}</tbody></table>
         </div>
       ) : <p className="sub">Appears once you override a pick and enter results.</p>}
