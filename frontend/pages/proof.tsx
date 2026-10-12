@@ -81,7 +81,7 @@ function Card({ item, reload }: { item: any; reload: () => void }) {
 
       <div className="pf-upload">
         <b>Show that this team was created</b>
-        <p className="sub" style={{ margin: '2px 0 8px' }}>Upload a screenshot (up to 3) of the team in Dream11. I read the players and the C and VC badges and check them against the recommendation above.</p>
+        <p className="sub" style={{ margin: '2px 0 8px' }}>Optional: upload a screenshot (up to 3) of the team in Dream11. I read the players and the C and VC badges and check them against the recommendation above.</p>
         {item.final && (
           <div className="seg compact" style={{ marginBottom: 8 }}>
             <button className={which === 'recommended' ? 'on' : ''} onClick={() => setWhich('recommended')}>Check against the agent's team</button>
@@ -89,7 +89,7 @@ function Card({ item, reload }: { item: any; reload: () => void }) {
           </div>
         )}
         <input ref={file} type="file" accept="image/*" multiple hidden onChange={(e) => upload(e.target.files)} />
-        <button className="btn primary" disabled={busy} onClick={() => file.current?.click()}>{busy ? <><Spinner /> Reading…</> : '📷 Upload team screenshot'}</button>
+        <button className="btn primary" disabled={busy} onClick={() => file.current?.click()}>{busy ? <><Spinner /> Reading…</> : '📷 Add a Dream11 screenshot (optional)'}</button>
         {err && <Banner kind="bad">{err}</Banner>}
         {results[0] && <Verdict r={results[0]} />}
         {item.proof?.images?.length > 0 && (
@@ -112,7 +112,7 @@ export default function Proof() {
   return (
     <>
       <h1>Proof of recommendations</h1>
-      <p className="sub">Every team the agent recommended is stored with the time it was made. Upload a screenshot of the team you created in Dream11 and the app checks it, player by player, against the recommendation. This is the page to show that the recommended team was the team that was actually created.</p>
+      <p className="sub">Every team the agent recommended is stored with the time it was made. Nothing needs uploading: each team below was built before the match, stored with its time, and for finished matches it is scored against the real result. A screenshot is optional and only shows that the team was also created in Dream11 itself; the app checks it player by player.</p>
       <h2>Live matches</h2>
       {live.length === 0 && <p className="sub">No live recommendation yet. Build a team for a match and it appears here.</p>}
       {live.map((i) => <Card key={i.key} item={i} reload={load} />)}

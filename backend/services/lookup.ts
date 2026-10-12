@@ -36,3 +36,28 @@ If the XI is not officially announced for both teams, set announced to false and
     sources,
   };
 }
+
+export interface FoundSquad {
+  announced: boolean; // true: official playing XI (after the toss); false: squad plus the XI most likely to play
+  players: { name: string; team: 'A' | 'B'; role: 'WK' | 'BAT' | 'AR' | 'BOWL'; inXI: boolean }[];
+  note: string;
+  sources: { title: string; uri: string }[];
+}
+
+/** Squad of both teams (about 15 each) and the XI that is announced or most likely to play, from Google Search. */
+export async function lookupSquad(m: { team_a: string; team_b: string; venue: string | null; format: string | null; starts_at: string | null }): Promise<FoundSquad> {
+  const { text, sources } = await gemini({
+    grounding: true,
+    prompt: `Use Google Search. Match: ${m.team_a} vs ${m.team_b}, ${m.format ?? 'T20'}, at ${m.venue ?? 'unknown venue'}, starting ${m.starts_at ?? 'soon'}.
+Find the squad of each team for THIS match (about 15 players each) and the playing XI. If the official XI is announced, use it and set "announced" true. Otherwise give the XI most likely to play, based on the last match and news, and set "announced" false.
+Reply with ONLY a JSON object:
+{"announced": boolean, "players": [{"name": full player name, "team": "A" for ${m.team_a} or "B" for ${m.team_b}, "role": one of "WK","BAT","AR","BOWL", "in_xi": boolean}], "note": "one short sentence on what you found"}
+Mark exactly 11 players per team as in_xi. Only list real players for this match.`,
+  });
+  const j = parseJson<{ announced?: boolean; players?: any[]; note?: string }>(text);
+  const roles = ['WK', 'BAT', 'AR', 'BOWL'];
+  const players = (j.players ?? [])
+    .filter((p) => p?.name && (p.team === 'A' || p.team === 'B'))
+    .map((p) => ({ name: String(p.name).trim(), team: p.team as 'A' | 'B', role: (roles.includes(p.role) ? p.role : 'BAT') as 'WK' | 'BAT' | 'AR' | 'BOWL', inXI: !!p.in_xi }));
+  return { announced: !!j.announced, players, note: j.note ?? '', sources };
+}

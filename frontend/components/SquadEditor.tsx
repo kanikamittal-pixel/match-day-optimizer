@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError, imageToPayload } from '@/frontend/api';
 import { Banner, Spinner, short } from './ui';
@@ -61,6 +61,23 @@ export default function SquadEditor({ matchId, teams, initial, confirmedInitial,
     setBusy('');
     if (file.current) file.current.value = '';
   }
+
+  async function autoSquad() {
+    setBusy('Finding both squads and the playing XI online…'); setErr(''); setNote(null);
+    try {
+      const r = await api(`/api/matches/${matchId}/squad/auto`, { method: 'POST' });
+      const have = new Set(rows.map((x) => nameKey(x.name)));
+      const fresh = r.rows.filter((x: any) => !have.has(nameKey(x.name)));
+      const byKey = new Map<string, any>(r.rows.map((x: any) => [nameKey(x.name), x]));
+      setRows((rs) => [...rs.map((x) => (byKey.has(nameKey(x.name)) ? { ...x, inXI: byKey.get(nameKey(x.name)).inXI } : x)), ...fresh]);
+      setConfirmed(!!r.announced);
+      setNote({ kind: r.announced ? 'ok' : 'warn', text: `${r.announced ? 'Official XI found and ticked.' : 'The XI is not announced yet, so I ticked the most likely XI. Press the button again after the toss to update it.'} It comes from a web search, so glance at it before building.${r.note ? ` (${r.note})` : ''}`, sources: r.sources });
+    } catch (e: any) { setErr(`${e.message}`); }
+    setBusy('');
+  }
+
+  // Nothing set up yet: look the squad up automatically, so there is nothing to upload
+  useEffect(() => { if (rows.length === 0 && !hasTeam) autoSquad(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadKnown() {
     setBusy('Loading the squad…'); setErr('');
@@ -138,8 +155,9 @@ export default function SquadEditor({ matchId, teams, initial, confirmedInitial,
     <div>
       <div className="sq-actions">
         <input ref={file} type="file" accept="image/*" multiple hidden onChange={(e) => onFiles(e.target.files)} />
-        <button className="btn primary wide" onClick={() => file.current?.click()} disabled={!!busy || building}>📷 Upload Dream11 screenshot</button>
-        <button className="btn" onClick={findXI} disabled={!!busy || building}>Find announced XI</button>
+        <button className="btn primary wide" onClick={autoSquad} disabled={!!busy || building}>🔎 Find squads and playing XI</button>
+        <button className="btn" onClick={findXI} disabled={!!busy || building}>Check announced XI</button>
+        <button className="btn ghost" onClick={() => file.current?.click()} disabled={!!busy || building}>📷 Add credits from a screenshot (optional)</button>
         <button className="btn ghost" onClick={loadKnown} disabled={!!busy || building}>Load squad</button>
         <button className="btn ghost wide" onClick={() => setShowPaste(!showPaste)}>Paste the XI as text</button>
       </div>
@@ -161,8 +179,8 @@ export default function SquadEditor({ matchId, teams, initial, confirmedInitial,
       {rows.length === 0 ? (
         <div className="empty">
           <div style={{ fontSize: 34 }}>📋</div>
-          <b>Start with your Dream11 screenshot</b>
-          <p className="sub" style={{ margin: '4px 0 0' }}>Open Create Team for this match, screenshot the player list, and upload it. I read every player, role and the probable XI for you.</p>
+          <b>Looking for the squads…</b>
+          <p className="sub" style={{ margin: '4px 0 0' }}>I search for both squads and the announced or most likely XI myself. No screenshot is needed. A screenshot only adds Dream11 credits, which no cricket source publishes, and credits are optional.</p>
         </div>
       ) : (
         <>
