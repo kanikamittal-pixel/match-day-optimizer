@@ -2,7 +2,7 @@
 <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#666"/></marker></defs>
 <rect width="2000" height="1430" fill="#fff"/>
 <text x="55" y="75" font-size="30" font-weight="800" fill="#111">Fantasy Cricket Match Day Optimizer · Components Map (as built)</text>
-<text x="55" y="105" font-size="15" fill="#444">Builds a fantasy team before the match, checks it after, and learns. Gemini Flash + Supabase on Vercel. Green NEW boxes were added during the build.</text>
+<text x="55" y="105" font-size="15" fill="#444">Builds a fantasy team before the match, checks it after, and learns. Gemini Flash + Supabase on Vercel.</text>
 <text x="320.0" y="168" text-anchor="middle" font-size="17" font-weight="800" letter-spacing="2" fill="#222">TRIGGER</text>
 <text x="560.0" y="168" text-anchor="middle" font-size="17" font-weight="800" letter-spacing="2" fill="#222">INPUT</text>
 <text x="800.0" y="168" text-anchor="middle" font-size="17" font-weight="800" letter-spacing="2" fill="#222">CONTEXT</text>
@@ -40,9 +40,9 @@
 <text x="1280.0" y="226.0" text-anchor="middle" font-size="10.5" font-weight="800" letter-spacing="1" fill="#c55f10">DECISION GATE · ARYAN DECIDES</text>
 <rect x="1644.0" y="211.0" width="232" height="144" rx="6" fill="none" stroke="#e0772c" stroke-dasharray="4 3"/>
 <text x="1760.0" y="226.0" text-anchor="middle" font-size="10.5" font-weight="800" letter-spacing="1" fill="#c55f10">DECISION GATE · ARYAN DECIDES</text>
-<path d="M427 290 L560 290 L560 620" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
+<path d="M427 290 L560 290 L560 610" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
 <path d="M320 345 L320 980 L453 980" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
-<path d="M667 670 L681 670 L681 950 L685 950 L685 980" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
+<path d="M667 665 L681 665 L681 950 L685 950 L685 980" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
 <path d="M667 800 L697 800 L697 520 L923 520 L923 490" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
 <path d="M800 790 L800 930" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
 <path d="M667 980 L693 980" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
@@ -80,32 +80,31 @@
 <rect x="1173.0" y="435.0" width="214" height="110" rx="10" fill="#e8f0fe" stroke="#4a6fd8" stroke-width="1.8"/>
 <text x="1280.0" y="461.0" text-anchor="middle" font-size="14.5" font-weight="800" fill="#111">Team card</text>
 <text x="1280.0" y="483.0" text-anchor="middle" font-size="13" fill="#333">XI + captain + reasons</text>
-<rect x="1413.0" y="430.0" width="214" height="120" rx="10" fill="#e8f0fe" stroke="#16a34a" stroke-width="3"/>
+<rect x="1413.0" y="430.0" width="214" height="120" rx="10" fill="#e8f0fe" stroke="#4a6fd8" stroke-width="1.8"/>
 <text x="1520.0" y="456.0" text-anchor="middle" font-size="14.5" font-weight="800" fill="#111">Match Report</text>
 <text x="1520.0" y="478.0" text-anchor="middle" font-size="13" fill="#333">Aryan picks ONE match:</text>
 <text x="1520.0" y="495.0" text-anchor="middle" font-size="13" fill="#333">our team vs the real top 11,</text>
 <text x="1520.0" y="512.0" text-anchor="middle" font-size="13" fill="#333">what we missed and why</text>
-<rect x="1583.0" y="421.0" width="46" height="18" rx="9" fill="#16a34a"/><text x="1606.0" y="434.0" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff">NEW</text>
-<rect x="1653.0" y="430.0" width="214" height="120" rx="10" fill="#e8f0fe" stroke="#16a34a" stroke-width="3"/>
+<rect x="1653.0" y="430.0" width="214" height="120" rx="10" fill="#e8f0fe" stroke="#4a6fd8" stroke-width="1.8"/>
 <text x="1760.0" y="456.0" text-anchor="middle" font-size="14.5" font-weight="800" fill="#111">Insights</text>
 <text x="1760.0" y="478.0" text-anchor="middle" font-size="13" fill="#333">ALL matches combined:</text>
 <text x="1760.0" y="495.0" text-anchor="middle" font-size="13" fill="#333">patterns that train</text>
 <text x="1760.0" y="512.0" text-anchor="middle" font-size="13" fill="#333">the model</text>
-<rect x="1823.0" y="421.0" width="46" height="18" rx="9" fill="#16a34a"/><text x="1846.0" y="434.0" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff">NEW</text>
-<rect x="453.0" y="620" width="214" height="100" rx="10" fill="#e0f3f6" stroke="#2a8aa0" stroke-width="1.8"/>
-<text x="560.0" y="646" text-anchor="middle" font-size="14.5" font-weight="800" fill="#111">CricketData &amp; Cricbuzz</text>
-<text x="560.0" y="668" text-anchor="middle" font-size="13" fill="#333">APIs for fixtures, toss,</text>
-<text x="560.0" y="685" text-anchor="middle" font-size="13" fill="#333">squads and scorecards</text>
-<rect x="453.0" y="750" width="214" height="100" rx="10" fill="#e0f3f6" stroke="#16a34a" stroke-width="3"/>
+<rect x="453.0" y="610" width="214" height="110" rx="10" fill="#e0f3f6" stroke="#2a8aa0" stroke-width="1.8"/>
+<text x="560.0" y="636" text-anchor="middle" font-size="14.5" font-weight="800" fill="#111">CricketData &amp; Cricbuzz</text>
+<text x="560.0" y="658" text-anchor="middle" font-size="13" fill="#333">CricketData.org API, and Cricbuzz</text>
+<text x="560.0" y="675" text-anchor="middle" font-size="13" fill="#333">data through RapidAPI:</text>
+<text x="560.0" y="692" text-anchor="middle" font-size="13" fill="#333">fixtures, toss, squads, scorecards</text>
+<rect x="453.0" y="750" width="214" height="100" rx="10" fill="#e0f3f6" stroke="#2a8aa0" stroke-width="1.8"/>
 <text x="560.0" y="776" text-anchor="middle" font-size="14.5" font-weight="800" fill="#111">Gemini web search</text>
 <text x="560.0" y="798" text-anchor="middle" font-size="13" fill="#333">Finds squads and the XI</text>
-<text x="560.0" y="815" text-anchor="middle" font-size="13" fill="#333">(Google Search, via OpenRouter)</text>
-<rect x="623.0" y="741" width="46" height="18" rx="9" fill="#16a34a"/><text x="646.0" y="754" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff">NEW</text>
-<rect x="693.0" y="680.0" width="214" height="110" rx="10" fill="#e0f3f6" stroke="#16a34a" stroke-width="3"/>
+<text x="560.0" y="815" text-anchor="middle" font-size="13" fill="#333">Google Search through the</text>
+<text x="560.0" y="832" text-anchor="middle" font-size="13" fill="#333">OpenRouter API</text>
+<rect x="693.0" y="680.0" width="214" height="110" rx="10" fill="#e0f3f6" stroke="#2a8aa0" stroke-width="1.8"/>
 <text x="800.0" y="706.0" text-anchor="middle" font-size="14.5" font-weight="800" fill="#111">Cricsheet.org data</text>
-<text x="800.0" y="728.0" text-anchor="middle" font-size="13" fill="#333">Past matches as fantasy</text>
-<text x="800.0" y="745.0" text-anchor="middle" font-size="13" fill="#333">points: each player&#x27;s form</text>
-<rect x="863.0" y="671.0" width="46" height="18" rx="9" fill="#16a34a"/><text x="886.0" y="684.0" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff">NEW</text>
+<text x="800.0" y="728.0" text-anchor="middle" font-size="13" fill="#333">Free ball-by-ball data of past</text>
+<text x="800.0" y="745.0" text-anchor="middle" font-size="13" fill="#333">matches, turned into fantasy</text>
+<text x="800.0" y="762.0" text-anchor="middle" font-size="13" fill="#333">points: each player&#x27;s form</text>
 <rect x="453.0" y="930.0" width="214" height="100" rx="10" fill="#fbe4ee" stroke="#d6457f" stroke-width="1.8"/>
 <text x="560.0" y="956.0" text-anchor="middle" font-size="14.5" font-weight="800" fill="#111">Reads credit screenshots</text>
 <text x="560.0" y="978.0" text-anchor="middle" font-size="13" fill="#333">Optional</text>
