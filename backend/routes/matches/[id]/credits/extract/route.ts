@@ -20,10 +20,28 @@ export const POST = handle(async (req: Request, { params }: { params: Promise<{ 
     temperature: 0,
     images,
     prompt: `These are screenshots from the Dream11 app for ${m.team_a} vs ${m.team_b}. They may be the player-selection list, the team preview, the captain/vice-captain screen, or a saved team. Extract EVERY player visible across all images (dedupe repeats).
-For each: name (as shown), team (must be exactly "${m.team_a}" or "${m.team_b}", map team codes/abbreviations to these), role as one of WK, BAT, AR, BOWL (from the tab, section or role label: WK=wicket-keeper, BAT=batter, AR=all-rounder, BOWL=bowler), credit (number such as 9.5).
+For each: name (as shown), team (must be exactly "${m.team_a}" or "${m.team_b}", map team codes/abbreviations to these), role as one of WK, BAT, AR, BOWL (from the small role label under each player's number: WK=wicket-keeper, BAT=batter, ALL or AR=all-rounder, BOWL=bowler). Include the players in both the main list and the \"Others\" section. Names may be shortened (e.g. \"S Jayawarde…\"): copy what is shown without the ellipsis, credit (number such as 9.5).
 IMPORTANT: Dream11 often hides credits until 11 players are picked. If a player's credit is NOT visible on screen, set credit to null. Never guess or estimate a credit. Do not invent players that are not visible.`,
   });
   const out = parseJson<{ players: { name: string; team: string; role: string; credit: number | null }[] }>(text);
+
+  // Two different players can share a shortened name (e.g. two "K Mendis"). Tell them apart so both survive.
+  const seenKey = new Map<string, number>();
+  for (const p of out.players) {
+    const k = `${p.team}|${nameKey(p.name)}`;
+    seenKey.set(k, (seenKey.get(k) ?? 0) + 1);
+  }
+  const used = new Set<string>();
+  for (const p of out.players) {
+    const k = `${p.team}|${nameKey(p.name)}`;
+    if ((seenKey.get(k) ?? 0) > 1) {
+      let label = `${p.name} (${p.role})`;
+      let n = 2;
+      while (used.has(`${p.team}|${nameKey(label)}`)) label = `${p.name} (${p.role} ${n++})`;
+      p.name = label;
+    }
+    used.add(`${p.team}|${nameKey(p.name)}`);
+  }
 
   const keys = out.players.map((p) => nameKey(p.name));
   const prev = must(await sb.from('players').select('name_key,last_credit').in('name_key', keys), 'prev credits') as { name_key: string; last_credit: number | null }[];
