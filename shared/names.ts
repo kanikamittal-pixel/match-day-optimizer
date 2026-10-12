@@ -58,3 +58,33 @@ export function matchStrict(input: string, fullNames: string[]): string | null {
   });
   return hits.length === 1 ? hits[0] : null;
 }
+
+/**
+ * Like matchStrict, but each roster player may also be known by aliases (full names from Cricsheet's register,
+ * e.g. "MD Shanaka" is also "Dasun Shanaka" / "D Shanaka"). A short Dream11 name matches a player if it
+ * strictly matches the player's name OR any alias, and exactly ONE player qualifies. Two hits means we refuse.
+ */
+export function matchStrictAliases(input: string, roster: string[], aliases: Record<string, string[]>): string | null {
+  const hits = new Set<string>();
+  for (const canon of new Set(roster)) {
+    const texts = [canon, ...(aliases[canon] ?? [])];
+    if (texts.some((t) => matchStrict(input, [t]) !== null)) hits.add(canon);
+  }
+  return hits.size === 1 ? [...hits][0] : null;
+}
+
+/**
+ * Safety net: if two different squad players were linked to the SAME historical player, at least one link is
+ * wrong (e.g. two "K Mendis" where only one has a known alias). Drop every link in such a clash.
+ */
+export function dropSharedLinks(link: Map<string, string>): { kept: Map<string, string>; dropped: string[] } {
+  const count = new Map<string, number>();
+  for (const full of link.values()) count.set(full, (count.get(full) ?? 0) + 1);
+  const kept = new Map<string, string>();
+  const dropped: string[] = [];
+  for (const [key, full] of link) {
+    if (count.get(full)! > 1) dropped.push(key);
+    else kept.set(key, full);
+  }
+  return { kept, dropped };
+}

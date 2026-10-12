@@ -23,7 +23,7 @@ export async function middleware(req: NextRequest) {
   });
   const { data } = await sb.auth.getUser();
   const path = req.nextUrl.pathname;
-  const isPublic = path === '/login' || path.startsWith('/api/auth');
+  const isPublic = path === '/login' || path.startsWith('/api/auth') || path.startsWith('/api/cron');
   if (!data.user && !isPublic) {
     if (path.startsWith('/api')) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 });
     const url = req.nextUrl.clone();

@@ -7,12 +7,11 @@
  *
  * Reads SUPABASE_URL / SUPABASE_ANON_KEY from .env.local. Data: Cricsheet (ODC-BY): credit it wherever shown.
  */
-import AdmZip from 'adm-zip';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseCricsheetMatch } from '../services/cricsheet';
+import { buildAliases, ingestZip, saveAliases } from '../services/cricsheet-ingest';
 
 const arg = (name: string, def?: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -51,38 +50,18 @@ async function main() {
   const dry = flag('dry');
   const sb = dry ? null : createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
 
-  const zip = new AdmZip(await getZip(src));
-  const entries = zip.getEntries().filter((e) => e.entryName.endsWith('.json'));
-  console.log(`${entries.length} matches in the file; keeping T20s played on/after ${since}${dry ? ' (dry run)' : ''}`);
+  const zip = await getZip(src);
+  console.log(`Keeping T20s played on/after ${since}${dry ? ' (dry run)' : ''}`);
+  const stats = await ingestZip(zip, { since, sb, limit, onProgress: (m, r) => process.stdout.write(`\r  ${m} matches, ${r} rows`) });
+  console.log(`\nDone: ${stats.matches} matches parsed, ${stats.rows} player-match rows ${dry ? 'would be written' : 'written'}; ${stats.skipped} skipped`, stats.skips);
 
-  let kept = 0, skipped = 0, written = 0;
-  const skips: Record<string, number> = {};
-  let batch: any[] = [];
-  const flush = async () => {
-    if (!batch.length || !sb) { written += batch.length; batch = []; return; }
-    const { error } = await sb.from('player_match_points').upsert(batch, { onConflict: 'match_ref,team,name_key' });
-    if (error) throw new Error(`Supabase: ${error.message} (did you run supabase/migrations/0004_player_match_points.sql?)`);
-    written += batch.length;
-    batch = [];
-  };
-
-  for (const e of entries) {
-    if (limit && kept >= limit) break;
-    let json: any;
-    try { json = JSON.parse(e.getData().toString('utf8')); } catch { skipped++; skips['bad json'] = (skips['bad json'] ?? 0) + 1; continue; }
-    const ref = e.entryName.replace(/\.json$/, '').split('/').pop()!;
-    const date = String(json?.info?.dates?.[0] ?? '');
-    if (date < since) { skipped++; skips['before --since'] = (skips['before --since'] ?? 0) + 1; continue; }
-    const m = parseCricsheetMatch(json, ref);
-    if (m.skip !== undefined) { skipped++; skips[m.skip] = (skips[m.skip] ?? 0) + 1; continue; }
-    kept++;
-    for (const r of m.rows) {
-      batch.push({ match_ref: ref, team: r.team, name_key: r.name_key, player: r.player, opponent: r.opponent, played_on: m.playedOn, match_type: m.matchType, gender: m.gender, venue: m.venue, event: m.event, points: r.points, bat_pos: r.bat_pos });
-    }
-    if (batch.length >= 1000) { await flush(); process.stdout.write(`\r  ${kept} matches, ${written} rows`); }
-  }
-  await flush();
-  console.log(`\nDone: ${kept} matches parsed, ${written} player-match rows ${dry ? 'would be written' : 'written'}; ${skipped} skipped`, skips);
+  // Name aliases (full names for the short names Dream11 shows), from Cricsheet's register
+  const res = await fetch('https://cricsheet.org/register/names.csv');
+  if (res.ok) {
+    const aliases = buildAliases(await res.text(), stats.idByName);
+    console.log(`${Object.keys(aliases).length} players have alternative names${dry ? '' : ' (saved)'}`);
+    if (sb) await saveAliases(sb, aliases);
+  } else console.warn(`Could not fetch names.csv (${res.status}); name matching will use initials only`);
 }
 
 main().catch((e) => { console.error(e.message ?? e); process.exit(1); });

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { blendBase, MIN_ALL, summariseForm, type FormRow, type PlayerHistory } from '@/shared/form';
-import { matchStrict } from '@/shared/names';
+import { dropSharedLinks, matchStrictAliases } from '@/shared/names';
+import { loadAliases } from '@/backend/services/cricsheet-ingest';
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const WINDOW_YEARS = 3;
@@ -46,12 +47,18 @@ export async function historyFor(
     rosters.set(team, [...new Set(rows.map((r) => r.player))]);
   }
 
-  // 2. strict name link
+  // 2. strict name link (surname + initial, also against the player's other known spellings)
   const link = new Map<string, string>(); // key -> cricsheet full name
+  const aliases = tableOk ? await loadAliases(sb) : {};
   if (tableOk) for (const p of players) {
-    const full = matchStrict(p.name, rosters.get(p.team) ?? []);
+    const full = matchStrictAliases(p.name, rosters.get(p.team) ?? [], aliases);
     if (full) link.set(p.key, full);
   }
+
+  const shared = dropSharedLinks(link);
+  const clash = new Set(shared.dropped);
+  link.clear();
+  for (const [k, v] of shared.kept) link.set(k, v);
 
   // 3. their results before the cutoff
   const byName = new Map<string, { when: string; points: number }[]>();
@@ -98,7 +105,7 @@ export async function historyFor(
       if (b) { h.base = b.base; h.basis = b.basis; }
       out[p.key] = h;
     } else {
-      out[p.key] = none(!tableOk ? 'History table not set up yet' : full ? 'No earlier matches found for this player' : `Couldn’t match “${p.name}” to a recent ${p.team} player`);
+      out[p.key] = none(!tableOk ? 'History table not set up yet' : clash.has(p.key) ? `“${p.name}” could be more than one player (two squad names match the same person), so no history is used` : full ? 'No earlier matches found for this player' : `Couldn’t match “${p.name}” to a recent ${p.team} player`);
     }
   }
   return out;

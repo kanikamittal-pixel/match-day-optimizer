@@ -50,3 +50,40 @@ describe('matchStrict', () => {
     expect(matchStrict('C Wickramas…', ['Charith Wickramasinghe', 'Dasun Shanaka'])).toBe('Charith Wickramasinghe');
   });
 });
+
+import { matchStrictAliases } from '../shared/names';
+
+describe('matchStrictAliases (Cricsheet register names)', () => {
+  const roster = ['MD Shanaka', 'BKG Mendis', 'PHKD Mendis', 'Saim Ayub', 'Shadab Khan'];
+  const aliases = { 'MD Shanaka': ['Dasun Shanaka', 'D Shanaka'], 'BKG Mendis': ['Kusal Mendis'], 'PHKD Mendis': ['Kamindu Mendis'] };
+  it('links a short name through a full-name alias', () => {
+    expect(matchStrictAliases('D Shanaka', roster, aliases)).toBe('MD Shanaka');
+    expect(matchStrictAliases('S Ayub', roster, aliases)).toBe('Saim Ayub');
+  });
+  it('still refuses when two different players qualify', () => {
+    expect(matchStrictAliases('K Mendis', roster, aliases)).toBeNull();
+  });
+  it('does not match on a different first initial or an unknown surname', () => {
+    expect(matchStrictAliases('A Shanaka', roster, aliases)).toBeNull();
+    expect(matchStrictAliases('D Silva', roster, aliases)).toBeNull();
+  });
+  it('works without any aliases (same as matchStrict)', () => {
+    expect(matchStrictAliases('S Ayub', roster, {})).toBe('Saim Ayub');
+  });
+});
+
+import { dropSharedLinks } from '../shared/names';
+
+describe('dropSharedLinks', () => {
+  it('drops every link when two squad players resolve to the same person', () => {
+    const link = new Map([['kmendiswk', 'BKG Mendis'], ['kmendisbat', 'BKG Mendis'], ['sayub', 'Saim Ayub']]);
+    const { kept, dropped } = dropSharedLinks(link);
+    expect([...kept.keys()]).toEqual(['sayub']);
+    expect(dropped.sort()).toEqual(['kmendisbat', 'kmendiswk']);
+  });
+  it('keeps everything when links are unique', () => {
+    const { kept, dropped } = dropSharedLinks(new Map([['a', 'A'], ['b', 'B']]));
+    expect(kept.size).toBe(2);
+    expect(dropped).toEqual([]);
+  });
+});
