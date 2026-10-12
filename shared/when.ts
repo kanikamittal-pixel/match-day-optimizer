@@ -21,3 +21,12 @@ export function dayLabel(iso: string | null, now = new Date()): string {
   if (sameDay(d, tomorrow)) return 'Tomorrow';
   return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 }
+
+/** The calendar day (YYYY-MM-DD) of a time, in the viewer's local time. Used by the date filter. */
+export function localDay(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}

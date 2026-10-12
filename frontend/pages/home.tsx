@@ -5,7 +5,7 @@ import { api } from '@/frontend/api';
 import { Banner, short } from '@/frontend/components/ui';
 import Sparkline from '@/frontend/components/Sparkline';
 import FaceOff, { heat } from '@/frontend/components/FaceOff';
-import { countdown, dayLabel } from '@/shared/when';
+import { countdown, dayLabel, localDay } from '@/shared/when';
 
 interface M { id: string; name: string; team_a: string; team_b: string; venue: string | null; format: string; starts_at: string | null; status: string | null; phase: 'completed' | 'live' | 'upcoming'; has_team: boolean; team_status: string | null; results_in: boolean }
 interface Status { history: { rows: number; latest: string | null }; weights: { version: number | null }; cricketdata: { hits: number; limit: number }; rapid: { hits: number; limit: number } }
@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [err, setErr] = useState('');
   const [filter, setFilter] = useState<Filter>('upcoming');
   const [q, setQ] = useState('');
+  const [day, setDay] = useState(''); // date filter: YYYY-MM-DD, empty = any day
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ team_a: '', team_b: '', venue: '', format: 'T20' });
   const [, tick] = useState(0);
@@ -51,9 +52,17 @@ export default function Dashboard() {
     const text = q.trim().toLowerCase();
     return matches
       .filter((m) => !text || `${m.team_a} ${m.team_b} ${m.venue ?? ''}`.toLowerCase().includes(text))
-      .filter((m) => filter === 'all' ? true : filter === 'today' ? dayLabel(m.starts_at, now) === 'Today' : filter === 'result' ? data?.awaiting.some((a) => a.id === m.id) : m.phase !== 'completed')
+      .filter((m) => (day ? localDay(m.starts_at) === day : true))
+      .filter((m) => day || filter === 'all' ? true : filter === 'today' ? dayLabel(m.starts_at, now) === 'Today' : filter === 'result' ? data?.awaiting.some((a) => a.id === m.id) : m.phase !== 'completed')
       .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)));
-  }, [matches, filter, q, data]);
+  }, [matches, filter, q, day, data]);
+
+  // days that have matches, for the date chips
+  const days = useMemo(() => {
+    const c = new Map<string, { n: number; iso: string }>();
+    for (const m of matches) { const k = localDay(m.starts_at); if (k) c.set(k, { n: (c.get(k)?.n ?? 0) + 1, iso: m.starts_at as string }); }
+    return [...c].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [matches]);
 
   const groups = useMemo(() => {
     const g = new Map<string, M[]>();
@@ -184,7 +193,20 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {groups.length === 0 && <p className="sub">No matches here. {filter !== 'all' && <a style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={() => { setFilter('all'); setQ(''); }}>Show all</a>}</p>}
+      {days.length > 1 && (
+        <div className="daybar">
+          <span className="sub">Day</span>
+          <div className="chips">
+            {days.slice(0, 8).map(([k, v]) => (
+              <span key={k} className={`chip ${day === k ? 'on' : ''}`} onClick={() => setDay(day === k ? '' : k)}>{dayLabel(v.iso)} · {v.n}</span>
+            ))}
+          </div>
+          <input type="date" className="daypick" value={day} min={days[0][0]} max={days[days.length - 1][0]} onChange={(e) => setDay(e.target.value)} aria-label="Pick a date" />
+          {day && <a className="sub" style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={() => setDay('')}>Any day</a>}
+        </div>
+      )}
+
+      {groups.length === 0 && <p className="sub">No matches here. {(filter !== 'all' || day) && <a style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={() => { setFilter('all'); setQ(''); setDay(''); }}>Show all</a>}</p>}
       {groups.map(([label, list]) => (
         <div key={label}>
           <div className="daylabel">{label}</div>

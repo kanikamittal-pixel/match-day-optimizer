@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countdown, dayLabel } from '../shared/when';
+import { countdown, dayLabel, localDay } from '../shared/when';
 
 const now = new Date('2026-10-12T10:00:00Z').getTime();
 describe('countdown', () => {
@@ -19,5 +19,16 @@ describe('dayLabel', () => {
     expect(dayLabel(new Date(now + 3600000).toISOString(), n)).toBe('Today');
     expect(dayLabel(new Date(now + 86400000 + 3600000).toISOString(), n)).toBe('Tomorrow');
     expect(dayLabel(null, n)).toBe('Date TBC');
+  });
+});
+
+describe('localDay', () => {
+  it('gives the local calendar day of a time', () => {
+    const d = new Date(2026, 9, 14, 4, 30); // 14 Oct 2026, 04:30 local
+    expect(localDay(d.toISOString())).toBe('2026-10-14');
+  });
+  it('is empty for a missing or invalid time', () => {
+    expect(localDay(null)).toBe('');
+    expect(localDay('not a date')).toBe('');
   });
 });

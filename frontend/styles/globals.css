@@ -379,3 +379,7 @@ details.cond summary::-webkit-details-marker { display: none; }
 
 .fixed { background: var(--card2); border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; min-height: 42px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
 .fixed .sub { font-weight: 500; }
+
+/* Match list: date filter */
+.daybar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 10px; }
+.daypick { width: auto; min-height: 36px; padding: 6px 10px; }
