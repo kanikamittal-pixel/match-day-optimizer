@@ -49,7 +49,9 @@ export default function TeamPage() {
   const { match: m, rules } = d;
   const final = d.decision.status === 'final';
   const pre = d.decision.stage === 'pre_toss';
+  const unchecked = view.xi.some((p: any) => !(p.credit > 0)); // credits skipped: cap not applied
   const left = Math.round((rules.credit_cap - view.credits) * 10) / 10;
+  const cr = (c: number) => (c > 0 ? `${c} cr` : 'no credit');
 
   async function preview(change: NonNullable<Pending>['change']) {
     setBusy(true);
@@ -105,6 +107,8 @@ export default function TeamPage() {
       {pre && <Banner kind="warn"><b>Pre-toss result.</b> Built on a probable XI. Confirm the XI after the toss and rebuild before you submit.</Banner>}
       {!view.valid ? (
         <Banner kind="bad"><b>Not valid for Dream11 yet.</b> {view.violations.map((v: any) => <div key={v.message}>• {v.message}</div>)}</Banner>
+      ) : unchecked ? (
+        <Banner kind="warn"><b>Built without credits.</b> Role and team limits are met, but the {rules.credit_cap}-credit cap was <b>not checked</b>. Dream11 may reject it. Add credits on the setup page and rebuild to apply the cap. <Link href={`/match/${id}`} style={{ textDecoration: 'underline' }}>Go to setup</Link></Banner>
       ) : (
         <Banner kind="ok"><b>Dream11-valid as shown.</b> {view.credits}/{rules.credit_cap} credits, role and team limits met.</Banner>
       )}
@@ -116,8 +120,8 @@ export default function TeamPage() {
           <span className="pill ok">{m.contest_type === 'small' ? 'Small league' : 'Grand league'}</span>
         </div>
         <div className="tc-meta">
-          <div className="stat"><div className="k">Credits used</div><div className="v num">{view.credits}</div></div>
-          <div className="stat"><div className="k">Credits left</div><div className="v num" style={{ color: left < 0 ? 'var(--red)' : undefined }}>{left}</div></div>
+          <div className="stat"><div className="k">Credits used</div><div className="v num">{unchecked ? '—' : view.credits}</div></div>
+          <div className="stat"><div className="k">Credits left</div><div className="v num" style={{ color: left < 0 && !unchecked ? 'var(--red)' : undefined }}>{unchecked ? '—' : left}</div></div>
           <div className="stat"><div className="k">Expected pts</div><div className="v num">{view.totalXp}</div></div>
         </div>
         {ROLES.map((r) => {
@@ -135,7 +139,7 @@ export default function TeamPage() {
                     <span className="tm">{short(p.team)}</span>
                     {tagOf(p) !== 'agent' && <span className={`tag ${tagOf(p)}`}>{tagOf(p)}</span>}
                   </div>
-                  <div className="xp num">{p.xp}<small>{p.credit} cr</small></div>
+                  <div className="xp num">{p.xp}<small>{cr(p.credit)}</small></div>
                   <div className="r">{p.reason}</div>
                 </div>
               ))}
@@ -155,7 +159,7 @@ export default function TeamPage() {
             {view.benchAll.slice(0, 8).map((p: any) => (
               <div key={p.key} className="row sb" style={{ padding: '10px 14px', borderTop: '1px solid var(--line)' }}>
                 <div className="grow"><b>{p.name}</b> <span className="sub">{p.role} · {short(p.team)}</span><div className="sub">{view.benchReason.get(p.key) ?? p.reason}</div></div>
-                <div className="num">{p.xp}<div className="sub">{p.credit} cr</div></div>
+                <div className="num">{p.xp}<div className="sub">{cr(p.credit)}</div></div>
               </div>
             ))}
           </div>
@@ -166,7 +170,7 @@ export default function TeamPage() {
         <div className="row"><button className="btn grow" onClick={copyText}>Copy for Dream11</button><button className="btn grow" onClick={saveImage}>Save image</button></div>
         {!final ? (
           <>
-            <button className="btn primary block" disabled={!view.valid || busy} onClick={() => act('finalize', 'Team finalised')}>{view.valid ? 'Finalise my team' : 'Fix the rules to finalise'}</button>
+            <button className="btn primary block" disabled={!view.valid || busy} onClick={() => act('finalize', 'Team finalised')}>{!view.valid ? 'Fix the rules to finalise' : unchecked ? 'Finalise (credits unchecked)' : 'Finalise my team'}</button>
             <p className="sub" style={{ margin: 0 }}>Tap any player to make them C/VC or swap them. You have the final say.</p>
             {d.decision.decisions.length > 0 && <button className="btn ghost block" onClick={() => act('reset', 'Back to the agent’s team')}>Reset to the agent’s team</button>}
           </>
@@ -182,7 +186,7 @@ export default function TeamPage() {
       {sheet?.type === 'player' && sel && (
         <Sheet onClose={() => setSheet(null)}>
           <b style={{ fontSize: 17 }}>{sel.name}</b>
-          <p className="sub">{sel.role} · {sel.team} · {sel.xp} xP · {sel.credit} cr</p>
+          <p className="sub">{sel.role} · {sel.team} · {sel.xp} xP · {cr(sel.credit)}</p>
           <div className="stack">
             <button className="btn block" disabled={sel.key === view.fin.captain} onClick={() => preview({ kind: 'captain', from: view.fin.captain, to: sel.key })}>Make captain (2x)</button>
             <button className="btn block" disabled={sel.key === view.fin.vc} onClick={() => preview({ kind: 'vice', from: view.fin.vc, to: sel.key })}>Make vice-captain (1.5x)</button>
@@ -196,7 +200,7 @@ export default function TeamPage() {
           <p className="sub">Choose from the XI and impact subs.</p>
           {view.benchAll.map((p: any) => (
             <div key={p.key} className="row sb" style={{ padding: '10px 0', borderTop: '1px solid var(--line)', cursor: 'pointer' }} onClick={() => preview({ kind: 'swap', from: sel.key, to: p.key })}>
-              <div className="grow"><b>{p.name}</b> <span className="sub">{p.role} · {short(p.team)} · {p.credit} cr</span></div>
+              <div className="grow"><b>{p.name}</b> <span className="sub">{p.role} · {short(p.team)} · {cr(p.credit)}</span></div>
               <div className="num">{p.xp}</div>
             </div>
           ))}

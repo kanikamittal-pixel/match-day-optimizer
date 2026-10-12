@@ -40,6 +40,7 @@ export interface Recommended {
   total_xp: number;
   credits: number;
   cvc_source: 'gemini' | 'fallback';
+  credit_mode?: 'applied' | 'ignored';
 }
 
 export interface FinalTeam {

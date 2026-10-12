@@ -91,7 +91,7 @@ export async function predictExpectedPoints(
   const playbook = await loadPlaybook(sb);
   const patterns = await errorPatternsFor(sb, match.venue, match.context?.pitch_type ?? null);
   const ctx = match.context ?? {};
-  const roster = pool.map((p) => `${p.name} | ${p.team} | ${p.role} | ${p.credit}cr`).join('\n');
+  const roster = pool.map((p) => `${p.name} | ${p.team} | ${p.role} | ${p.credit > 0 ? `${p.credit}cr` : 'credit n/a'}`).join('\n');
   const schema = S.obj({
     players: S.arr(S.obj({ name: S.str, batting_position: S.int, expected_points: S.num, reason: S.str })),
   });
@@ -126,6 +126,7 @@ REASON RULES: one sentence, max 25 words, must cite something specific to THIS m
     }
     const generic = findGeneric(rows.map((r) => ({ name: r.name, reason: r.reason })), { venue: match.venue, teams: [match.team_a, match.team_b] });
     if (!missing.length && !generic.length) return rows;
+    console.warn(`[predict] attempt ${attempt + 1} rejected. missing=${JSON.stringify(missing)} generic=${JSON.stringify(rows.filter((r) => generic.includes(r.name)).map((r) => `${r.name}: ${r.reason}`).slice(0, 4))}`);
     feedback = `\n\nYOUR PREVIOUS ANSWER WAS REJECTED. ${missing.length ? `Missing players: ${missing.join(', ')}. ` : ''}${generic.length ? `Generic or non-specific reasons for: ${generic.join(', ')}. Rewrite them citing venue, opposition, pitch, batting position or conditions.` : ''} Return ALL players again.`;
   }
   throw new HttpError(502, 'Gemini kept returning generic or incomplete predictions. Try again in a moment.');

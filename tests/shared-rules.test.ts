@@ -100,3 +100,19 @@ describe('matchName', () => {
     expect(matchName('Sharma', known)).toBeNull();
   });
 });
+
+describe('skip credits mode', () => {
+  it('builds from expected points alone and ignores the cap when any credit is unknown', () => {
+    const p = pool().map((x) => ({ ...x, credit: 0 }));
+    const r = buildBestXI(p, DEFAULT_RULES)!;
+    expect(r.creditsIgnored).toBe(true);
+    expect(validateTeam(r.team, DEFAULT_RULES)).toEqual([]);
+    const greedy = [...p].sort((a, b) => b.xp - a.xp).slice(0, 11).reduce((s, x) => s + x.xp, 0);
+    expect(r.totalXp).toBeLessThanOrEqual(greedy);
+  });
+  it('applies the cap again once every credit is known', () => {
+    const r = buildBestXI(pool(), { ...DEFAULT_RULES, credit_cap: 95 })!;
+    expect(r.creditsIgnored).toBe(false);
+    expect(r.credits).toBeLessThanOrEqual(95);
+  });
+});

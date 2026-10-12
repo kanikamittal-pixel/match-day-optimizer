@@ -40,17 +40,18 @@ export const PUT = handle(async (req: Request, { params }: { params: Promise<{ i
   const { id } = await params;
   const { sb } = await requireUser();
   const m = await loadMatch(sb, id);
-  const { rows } = (await req.json()) as { rows: { name: string; team: string; role: string; credit: number }[] };
+  const { rows, skipCredits } = (await req.json()) as { rows: { name: string; team: string; role: string; credit: number | string | null }[]; skipCredits?: boolean };
   const clean: any[] = [];
   const problems: string[] = [];
   const seen = new Set<string>();
   for (const r of rows) {
     const name = String(r.name ?? '').trim();
-    const credit = Number(r.credit);
+    const blank = r.credit === '' || r.credit === null || r.credit === undefined;
+    const credit = blank && skipCredits ? 0 : Number(r.credit);
     if (!name) continue;
     if (!ROLES.includes(r.role as any)) problems.push(`${name}: pick a role`);
     if (![m.team_a, m.team_b].includes(r.team)) problems.push(`${name}: pick a team`);
-    if (!Number.isFinite(credit) || credit < 4 || credit > 14) problems.push(`${name}: credit looks wrong`);
+    if (!(skipCredits && credit === 0) && (!Number.isFinite(credit) || credit < 4 || credit > 14)) problems.push(`${name}: credit looks wrong`);
     const key = nameKey(name);
     if (seen.has(key)) problems.push(`${name}: listed twice`);
     seen.add(key);

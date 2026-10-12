@@ -41,6 +41,7 @@ export const POST = handle(async (req: Request, { params }: { params: Promise<{ 
     total_xp: built.totalXp,
     credits: built.credits,
     cvc_source: cvc.source,
+    credit_mode: built.creditsIgnored ? 'ignored' : 'applied',
   };
   must(
     await sb.from('team_decisions').upsert({

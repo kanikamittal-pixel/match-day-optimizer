@@ -7,6 +7,9 @@ export interface Violation {
 
 const tenth = (n: number) => Math.round(n * 10);
 
+/** A credit of 0 means "unknown" (Aryan skipped credits). Credit checks are skipped when any player has none. */
+export const hasCredit = (c: number) => Number.isFinite(c) && c > 0;
+
 export function creditsUsed(team: Candidate[]): number {
   return tenth(team.reduce((s, p) => s + p.credit, 0)) / 10;
 }
@@ -18,7 +21,8 @@ export function validateTeam(team: Candidate[], rules: Rules, eligible?: Set<str
   if (new Set(team.map((p) => p.key)).size !== team.length) v.push({ code: 'duplicate', message: 'A player appears twice.' });
   if (team.some((p) => !Number.isFinite(p.credit))) v.push({ code: 'missing_data', message: 'A player has no credit value.' });
   const used = creditsUsed(team);
-  if (used > rules.credit_cap) v.push({ code: 'credits', message: `${used} credits used, cap is ${rules.credit_cap}.` });
+  const creditsKnown = team.every((p) => hasCredit(p.credit));
+  if (creditsKnown && used > rules.credit_cap) v.push({ code: 'credits', message: `${used} credits used, cap is ${rules.credit_cap}.` });
   for (const r of ROLES) {
     const n = team.filter((p) => p.role === r).length;
     if (n < rules.role_min[r]) v.push({ code: 'role_min', message: `Need at least ${rules.role_min[r]} ${r}, have ${n}.` });
@@ -35,6 +39,8 @@ export interface BuildResult {
   team: Candidate[];
   totalXp: number;
   credits: number;
+  /** true when credits were skipped: the cap was NOT applied */
+  creditsIgnored: boolean;
 }
 
 /**
@@ -45,6 +51,8 @@ export function buildBestXI(pool: Candidate[], rules: Rules, pinned: string[] = 
   const pins = pool.filter((p) => pinned.includes(p.key));
   if (pins.length !== new Set(pinned).size) return null;
   const rest = pool.filter((p) => !pinned.includes(p.key)).sort((a, b) => b.xp - a.xp || a.credit - b.credit);
+  const ignoreCredits = pool.some((p) => !hasCredit(p.credit));
+  const cost = (p: Candidate): number => (ignoreCredits ? 0 : tenth(p.credit));
   const size = rules.team_size;
   const n = rest.length;
 
@@ -66,14 +74,14 @@ export function buildBestXI(pool: Candidate[], rules: Rules, pinned: string[] = 
     chosen.push(p);
     roleCount[p.role]++;
     teamCount.set(p.team, (teamCount.get(p.team) ?? 0) + 1);
-    creditTenths += tenth(p.credit);
+    creditTenths += cost(p);
     sumXp += p.xp;
   };
   const remove = (p: Candidate) => {
     chosen.pop();
     roleCount[p.role]--;
     teamCount.set(p.team, (teamCount.get(p.team) ?? 0) - 1);
-    creditTenths -= tenth(p.credit);
+    creditTenths -= cost(p);
     sumXp -= p.xp;
   };
 
@@ -106,7 +114,7 @@ export function buildBestXI(pool: Candidate[], rules: Rules, pinned: string[] = 
     if (
       roleCount[p.role] < rules.role_max[p.role] &&
       (teamCount.get(p.team) ?? 0) < rules.max_per_team &&
-      creditTenths + tenth(p.credit) <= capTenths
+      creditTenths + cost(p) <= capTenths
     ) {
       add(p);
       dfs(i + 1);
@@ -118,7 +126,7 @@ export function buildBestXI(pool: Candidate[], rules: Rules, pinned: string[] = 
 
   if (!best) return null;
   const team = best as Candidate[];
-  return { team, totalXp: Math.round(bestXp * 10) / 10, credits: creditsUsed(team) };
+  return { team, totalXp: Math.round(bestXp * 10) / 10, credits: ignoreCredits ? 0 : creditsUsed(team), creditsIgnored: ignoreCredits };
 }
 
 export interface Fix {
