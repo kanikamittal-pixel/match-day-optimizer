@@ -23,7 +23,59 @@ interface Opts {
   temperature?: number;
 }
 
+/** Gemini-style schema (UPPERCASE types, nullable) to standard JSON schema for OpenRouter. */
+function toJsonSchema(n: any): any {
+  if (Array.isArray(n)) return n.map(toJsonSchema);
+  if (!n || typeof n !== 'object') return n;
+  const o: any = {};
+  for (const [k, v] of Object.entries(n)) {
+    if (k === 'nullable') continue;
+    o[k] = k === 'type' && typeof v === 'string' ? v.toLowerCase() : toJsonSchema(v);
+  }
+  if (n.nullable && o.type) o.type = [o.type, 'null'];
+  if (o.type === 'object' && o.properties) { o.additionalProperties = false; o.required = Object.keys(o.properties); }
+  return o;
+}
+
+/** Google models only, served by Google's own infrastructure, through OpenRouter (used when OPENROUTER_API_KEY is set). */
+async function viaOpenRouter(opts: Opts, key: string): Promise<{ text: string; sources: GeminiSource[] }> {
+  const content: unknown[] = [{ type: 'text', text: opts.prompt }];
+  for (const img of opts.images ?? []) content.push({ type: 'image_url', image_url: { url: `data:${img.mime};base64,${img.data}` } });
+  const body: Record<string, unknown> = {
+    model: process.env.OPENROUTER_MODEL || 'google/gemini-3.7-flash',
+    temperature: opts.temperature ?? 0.2,
+    messages: [...(opts.system ? [{ role: 'system', content: opts.system }] : []), { role: 'user', content }],
+    provider: { only: ['google-vertex', 'google-ai-studio'], allow_fallbacks: false },
+  };
+  if (opts.schema) body.response_format = { type: 'json_schema', json_schema: { name: 'answer', strict: true, schema: toJsonSchema(opts.schema) } };
+  if (opts.grounding) body.plugins = [{ id: 'web' }];
+  let lastErr = '';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` }, body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      const msg = json.choices?.[0]?.message;
+      const text = typeof msg?.content === 'string' ? msg.content : (msg?.content ?? []).map((p: { text?: string }) => p.text ?? '').join('');
+      if (!text) throw new HttpError(502, `The model returned no text (${json.choices?.[0]?.finish_reason ?? json.error?.message ?? 'unknown'}).`);
+      const seen = new Set<string>();
+      const sources = (msg?.annotations ?? [])
+        .filter((a: any) => a.type === 'url_citation' && a.url_citation?.url)
+        .map((a: any) => ({ title: a.url_citation.title || a.url_citation.url, uri: a.url_citation.url }))
+        .filter((x: GeminiSource) => !seen.has(x.uri) && seen.add(x.uri));
+      return { text, sources };
+    }
+    lastErr = `${res.status} ${(await res.text()).slice(0, 300)}`;
+    if (res.status === 402) break;
+    if (res.status !== 429 && res.status < 500) break;
+    await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+  }
+  throw new HttpError(502, `AI request failed: ${lastErr}`);
+}
+
 export async function gemini(opts: Opts): Promise<{ text: string; sources: GeminiSource[] }> {
+  if (process.env.OPENROUTER_API_KEY) return viaOpenRouter(opts, process.env.OPENROUTER_API_KEY);
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new HttpError(500, 'GEMINI_API_KEY is not set.');
   if (opts.grounding && opts.schema) throw new Error('Grounding and responseSchema cannot be combined.');
