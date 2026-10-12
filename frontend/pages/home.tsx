@@ -38,7 +38,9 @@ export default function Dashboard() {
   const matches = data?.matches ?? [];
   const next = useMemo(() => matches.filter((m) => m.phase !== 'completed' && !m.results_in).sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)))[0], [matches]);
 
-  const nextId = next?.id;
+  // form data exists for T20s only, so the watch list and the face-off follow the next T20
+  const nextT20 = useMemo(() => matches.filter((m) => m.format === 'T20' && m.phase !== 'completed' && !m.results_in).sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)))[0], [matches]);
+  const nextId = nextT20?.id;
   useEffect(() => { if (nextId) api(`/api/dashboard/watch?match=${encodeURIComponent(nextId)}`).then(setWatch).catch(() => {}); }, [nextId]);
 
   const shown = useMemo(() => {

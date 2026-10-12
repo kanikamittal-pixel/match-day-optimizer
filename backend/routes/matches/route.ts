@@ -68,7 +68,7 @@ export const GET = handle(async (req: Request) => {
   const hasActuals = new Set(acts.map((a) => a.match_id));
   const dec = new Map(decisions.map((d) => [d.match_id, d]));
   const awaitingIds = decisions.filter((d) => d.status === 'final' && !hasActuals.has(d.match_id)).map((d) => d.match_id);
-  const awaiting = awaitingIds.length ? must(await sb.from('matches').select('id,name,starts_at').in('id', awaitingIds), 'awaiting') : [];
+  const awaiting = awaitingIds.length ? (must(await sb.from('matches').select('id,name,starts_at').in('id', awaitingIds), 'awaiting') as any[]).filter((m) => !m.starts_at || new Date(m.starts_at).getTime() < Date.now()) : []; // only matches that have started can have a result
 
   // Phase comes from the API status text plus the start time, so finished matches never read "Not started".
   const DONE = /\b(won by|won the match|match drawn|drawn|tied|no result|abandoned|match ended|completed|result)\b/i;
