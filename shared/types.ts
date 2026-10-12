@@ -28,7 +28,7 @@ export interface MatchXI {
   teamB: string[];
   impact: string[];
   confirmed: boolean;
-  source: 'api' | 'manual' | 'probable';
+  source: 'api' | 'manual' | 'probable' | 'announced';
 }
 
 export interface Recommended {

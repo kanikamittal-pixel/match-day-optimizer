@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import TossPanel from '@/frontend/components/TossPanel';
 import { useParams } from 'next/navigation';
 import { api } from '@/frontend/api';
 import { Banner, Sheet, Spinner, short, useToast } from '@/frontend/components/ui';
@@ -137,7 +138,8 @@ export default function TeamPage() {
         <div className="row">{pre && <span className="pill warn">Pre-toss · probable XI</span>}{final && <span className="pill ok">Finalised</span>}</div>
       </div>
 
-      {pre && <Banner kind="warn"><b>Pre-toss result.</b> Built on a probable XI. Confirm the XI after the toss and rebuild before you submit.</Banner>}
+      {pre && <Banner kind="warn"><b>Pre-toss result.</b> Built on a probable XI. After the toss, get the announced XI below and the team is rebuilt for the players who actually play.</Banner>}
+      {pre && !final && <TossPanel matchId={id} teamKeys={d.decision.final.xi} names={Object.fromEntries(d.credits.map((c: any) => [c.name_key, c.name]))} onDone={() => { load(); setToast('Rebuilt for the announced XI'); }} />}
       {!view.valid ? (
         <Banner kind="bad"><b>Not valid for Dream11 yet.</b> {view.violations.map((v: any) => <div key={v.message}>• {v.message}</div>)}</Banner>
       ) : unchecked ? (
