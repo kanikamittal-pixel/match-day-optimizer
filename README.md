@@ -79,6 +79,8 @@ Push to GitHub, import in Vercel, add the same variables, deploy. Routes that ca
 
 ## Known limits
 
+- **Dream11 hides credits until 11 players are picked.** So the screenshots to upload are the team preview / captain screen of any 11-player selection (repeat with a different 11 to cover more of the pool). Credits not visible are never guessed: they fall back to the player's last known credit (flagged to verify) or the player is left out of the pool.
+
 - CricketData's free tier does not reliably expose the *announced* XI. The squad endpoint is treated as a pool and Aryan ticks (or pastes) the XI. Impact substitutes are always manual.
 - Recent player form and venue record come from Gemini + Search (with source links) rather than per-player API calls, to protect the 100-hit budget.
 - Dream11 scoring differs by format; the seeded weights are T20-style and are meant to be tuned through the approval loop.

@@ -4,7 +4,7 @@ import { api, imageToPayload } from '@/frontend/api';
 import { Banner, Spinner } from '@/frontend/components/ui';
 import { ROLES } from '@/shared/types';
 
-export interface CreditRow { name: string; team: string; role: string; credit: number | string; prev_credit?: number | null; changed?: boolean }
+export interface CreditRow { name: string; team: string; role: string; credit: number | string; prev_credit?: number | null; changed?: boolean; assumed?: boolean }
 
 export default function CreditsEditor({ matchId, teams, initial, onSaved }: { matchId: string; teams: [string, string]; initial: CreditRow[]; onSaved: (n: number) => void }) {
   const [rows, setRows] = useState<CreditRow[]>(initial);
@@ -38,13 +38,19 @@ export default function CreditsEditor({ matchId, teams, initial, onSaved }: { ma
 
   async function confirm() {
     setBusy('Saving…'); setErr('');
-    try { const { saved: n } = await api(`/api/matches/${matchId}/credits`, { method: 'PUT', json: { rows } }); setSaved(true); onSaved(n); } catch (e: any) { setErr(e.message); }
+    // Players whose credit is still blank are left out of the pool (never guessed).
+    const usable = rows.filter((r) => r.credit !== '' && r.credit !== null);
+    const left = rows.length - usable.length;
+    try { const { saved: n } = await api(`/api/matches/${matchId}/credits`, { method: 'PUT', json: { rows: usable } }); if (left) setErr(`${left} player${left > 1 ? 's' : ''} without a credit were left out of the pool. Add credits to include them.`); setSaved(true); onSaved(n); } catch (e: any) { setErr(e.message); }
     setBusy('');
   }
 
   const changed = rows.filter((r) => r.changed).length;
   return (
     <div>
+      <p className="sub" style={{ marginTop: 0 }}>
+        Dream11 shows credits only after you pick 11 players. Pick any 11, open the team preview or captain screen, and screenshot it. Repeat with a different 11 to cover more players (up to 3 screenshots). Players without a credit are left out. Nothing is guessed.
+      </p>
       <div className="row" style={{ flexWrap: 'wrap' }}>
         <input ref={file} type="file" accept="image/*" multiple hidden onChange={(e) => onFiles(e.target.files)} />
         <button className="btn primary" onClick={() => file.current?.click()} disabled={!!busy}>Upload 1–3 screenshots</button>
@@ -53,7 +59,7 @@ export default function CreditsEditor({ matchId, teams, initial, onSaved }: { ma
       </div>
       {busy && <p className="sub"><Spinner /> {busy}</p>}
       {err && <Banner kind="bad">{err}</Banner>}
-      {changed > 0 && <Banner kind="warn">{changed} credit{changed > 1 ? 's' : ''} changed since the player’s last match (highlighted). Check them.</Banner>}
+      {changed > 0 && <Banner kind="warn">{changed} credit{changed > 1 ? 's' : ''} need checking (highlighted): changed since last match, or carried over because the screenshot didn’t show them.</Banner>}
       {rows.length > 0 && (
         <div style={{ marginTop: 8 }}>
           {rows.map((r, i) => (
@@ -64,12 +70,13 @@ export default function CreditsEditor({ matchId, teams, initial, onSaved }: { ma
                 <select value={r.team} onChange={(e) => set(i, { team: e.target.value })}>{teams.map((t) => <option key={t}>{t}</option>)}</select>
                 <select value={r.role} onChange={(e) => set(i, { role: e.target.value })}>{ROLES.map((x) => <option key={x}>{x}</option>)}</select>
               </div>
-              {(r.changed || r.prev_credit != null) && r.prev_credit != null && <div className="sub" style={{ gridColumn: '1 / -1' }}>was {r.prev_credit}</div>}
+              {r.assumed ? <div className="sub" style={{ gridColumn: '1 / -1', color: 'var(--amber)' }}>Not shown on screen. Using last known credit {r.prev_credit}, please verify.</div> : r.prev_credit != null && <div className="sub" style={{ gridColumn: '1 / -1' }}>was {r.prev_credit}</div>}
+              {r.credit === '' && <div className="sub" style={{ gridColumn: '1 / -1', color: 'var(--red)' }}>No credit yet. This player is left out unless you add one.</div>}
               <button className="btn sm ghost danger" style={{ gridColumn: '1 / -1', justifySelf: 'start' }} onClick={() => { setRows(rows.filter((_, j) => j !== i)); setSaved(false); }}>Remove</button>
             </div>
           ))}
           <button className="btn primary block" style={{ marginTop: 10 }} onClick={confirm} disabled={!!busy}>
-            {saved ? `✓ Confirmed (${rows.length} players)` : `Confirm ${rows.length} players`}
+            {saved ? `✓ Confirmed (${rows.length} players)` : `Confirm ${rows.filter((r) => r.credit !== '' && r.credit !== null).length} players with credits`}
           </button>
         </div>
       )}

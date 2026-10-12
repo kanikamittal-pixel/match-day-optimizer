@@ -13,24 +13,26 @@ export const POST = handle(async (req: Request, { params }: { params: Promise<{ 
   if (!images?.length || images.length > 3) throw new HttpError(400, 'Upload 1 to 3 screenshots.');
 
   const schema = S.obj({
-    players: S.arr(S.obj({ name: S.str, team: S.str, role: S.enum(['WK', 'BAT', 'AR', 'BOWL']), credit: S.num })),
+    players: S.arr(S.obj({ name: S.str, team: S.str, role: S.enum(['WK', 'BAT', 'AR', 'BOWL']), credit: { type: 'NUMBER', nullable: true } })),
   });
   const { text } = await gemini({
     schema,
     temperature: 0,
     images,
-    prompt: `These are screenshots of Dream11's "Create Team" screen for ${m.team_a} vs ${m.team_b}. Extract EVERY player visible across all images (dedupe repeats).
-For each: name (as shown), team (must be exactly "${m.team_a}" or "${m.team_b}", map team codes/abbreviations to these), role as one of WK, BAT, AR, BOWL (from the tab/section: WK=wicket-keeper, BAT=batter, AR=all-rounder, BOWL=bowler), credit (number, e.g. 9.5).
-Do not invent players that are not visible.`,
+    prompt: `These are screenshots from the Dream11 app for ${m.team_a} vs ${m.team_b}. They may be the player-selection list, the team preview, the captain/vice-captain screen, or a saved team. Extract EVERY player visible across all images (dedupe repeats).
+For each: name (as shown), team (must be exactly "${m.team_a}" or "${m.team_b}", map team codes/abbreviations to these), role as one of WK, BAT, AR, BOWL (from the tab, section or role label: WK=wicket-keeper, BAT=batter, AR=all-rounder, BOWL=bowler), credit (number such as 9.5).
+IMPORTANT: Dream11 often hides credits until 11 players are picked. If a player's credit is NOT visible on screen, set credit to null. Never guess or estimate a credit. Do not invent players that are not visible.`,
   });
-  const out = parseJson<{ players: { name: string; team: string; role: string; credit: number }[] }>(text);
+  const out = parseJson<{ players: { name: string; team: string; role: string; credit: number | null }[] }>(text);
 
   const keys = out.players.map((p) => nameKey(p.name));
   const prev = must(await sb.from('players').select('name_key,last_credit').in('name_key', keys), 'prev credits') as { name_key: string; last_credit: number | null }[];
   const prevMap = new Map(prev.map((p) => [p.name_key, p.last_credit === null ? null : Number(p.last_credit)]));
   const rows = out.players.map((p) => {
     const before = prevMap.get(nameKey(p.name)) ?? null;
-    return { ...p, prev_credit: before, changed: before !== null && before !== p.credit };
+    // Credit hidden on screen: fall back to the player's last known credit (flagged to verify), else leave blank.
+    if (p.credit === null || p.credit === undefined) return { ...p, credit: before ?? '', prev_credit: before, changed: before !== null, assumed: before !== null };
+    return { ...p, prev_credit: before, changed: before !== null && before !== p.credit, assumed: false };
   });
   return { rows };
 });
