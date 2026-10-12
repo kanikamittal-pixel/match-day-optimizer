@@ -127,26 +127,36 @@ For a player with NO RELIABLE HISTORY, return your own "expected_points" (one de
 For EVERY player return: name (exactly as given), batting_position (1-11 expected batting slot, 0 if unlikely to bat), adjustment, expected_points, reason.
 REASON RULES: one sentence, max 25 words, must cite something specific to THIS match: venue record, record vs this opposition, the pitch, batting position or conditions (e.g. "Opens on a slow surface here where first-innings par is 158"). Only mention form or averages that appear in the history column. Never write generic reasons like "in good form", "key player", "consistent performer", "reliable option".`;
 
+  // Only the players that fail validation are re-asked. Accepted rows are kept, so one weak reason never re-rolls the whole squad.
+  const accepted = new Map<string, PredictionRow>();
+  let pending = pool;
   let feedback = '';
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 4 && pending.length; attempt++) {
+    const rosterNow = pending.map((p) => `${p.name} | ${p.team} | ${p.role} | ${p.credit > 0 ? `${p.credit}cr` : 'credit n/a'} | ${historyText(history[p.key])}`).join('\n');
     const { text } = await gemini({
       system: 'You are a sharp fantasy cricket analyst. Respond with strict JSON only.',
-      prompt: base + feedback,
+      prompt: base.replace(roster, rosterNow) + feedback,
       schema,
       temperature: 0.3,
     });
     const out = parseJson<{ players: { name: string; batting_position: number; adjustment: number | null; expected_points: number | null; reason: string }[] }>(text);
     const byName = new Map(out.players.map((p) => [p.name.toLowerCase().trim(), p]));
-    const rows: PredictionRow[] = [];
-    const missing: string[] = [];
-    for (const c of pool) {
+    const problems: string[] = [];
+    const stillPending: Candidate[] = [];
+    for (const c of pending) {
       const p = byName.get(c.name.toLowerCase().trim());
       const h = history[c.key];
       const hasBase = h?.base !== undefined;
       const adj = p?.adjustment;
       const own = p?.expected_points;
       if (!p || (hasBase ? typeof adj !== 'number' || !Number.isFinite(adj) : typeof own !== 'number' || !Number.isFinite(own))) {
-        missing.push(c.name);
+        stillPending.push(c);
+        problems.push(`${c.name}: ${hasBase ? 'needs a numeric adjustment (and expected_points null)' : 'needs a numeric expected_points (and adjustment null)'}`);
+        continue;
+      }
+      if (findGeneric([{ name: c.name, reason: p.reason }], { venue: match.venue, teams: [match.team_a, match.team_b] }).length) {
+        stillPending.push(c);
+        problems.push(`${c.name}: reason "${p.reason}" is generic. Rewrite it citing the venue, opposition, pitch, batting position or conditions`);
         continue;
       }
       let xp: number;
@@ -158,14 +168,16 @@ REASON RULES: one sentence, max 25 words, must cite something specific to THIS m
       } else {
         xp = Math.max(0, Math.round((own as number) * 10) / 10);
       }
-      rows.push({ key: c.key, name: c.name, batting_position: p.batting_position > 0 ? p.batting_position : null, expected_points: xp, reason: p.reason.trim(), base: hasBase ? h.base! : null, adjustment: adjUsed, basis: hasBase ? h.basis ?? null : null });
+      accepted.set(c.key, { key: c.key, name: c.name, batting_position: p.batting_position > 0 ? p.batting_position : null, expected_points: xp, reason: p.reason.trim(), base: hasBase ? h.base! : null, adjustment: adjUsed, basis: hasBase ? h.basis ?? null : null });
     }
-    const generic = findGeneric(rows.map((r) => ({ name: r.name, reason: r.reason })), { venue: match.venue, teams: [match.team_a, match.team_b] });
-    if (!missing.length && !generic.length) return rows;
-    console.warn(`[predict] attempt ${attempt + 1} rejected. missing=${JSON.stringify(missing)} generic=${JSON.stringify(rows.filter((r) => generic.includes(r.name)).map((r) => `${r.name}: ${r.reason}`).slice(0, 4))}`);
-    feedback = `\n\nYOUR PREVIOUS ANSWER WAS REJECTED. ${missing.length ? `Missing or wrong fields for: ${missing.join(', ')} (players with a BASE need a numeric adjustment; players without need a numeric expected_points). ` : ''}${generic.length ? `Generic or non-specific reasons for: ${generic.join(', ')}. Rewrite them citing venue, opposition, pitch, batting position or conditions.` : ''} Return ALL players again.`;
+    pending = stillPending;
+    if (pending.length) {
+      console.warn(`[predict] attempt ${attempt + 1}: ${pending.length} player(s) re-asked: ${problems.slice(0, 3).join(' | ')}`);
+      feedback = `\n\nSOME ANSWERS WERE REJECTED. Return ONLY the players listed above again, fixing: ${problems.join('; ')}.`;
+    }
   }
-  throw new HttpError(502, 'Gemini kept returning generic or incomplete predictions. Try again in a moment.');
+  if (pending.length) throw new HttpError(502, `Gemini couldn’t give specific predictions for: ${pending.map((p) => p.name).join(', ')}. Try again in a moment.`);
+  return pool.map((p) => accepted.get(p.key)!);
 }
 
 export interface CVC {

@@ -116,3 +116,16 @@ describe('skip credits mode', () => {
     expect(r.credits).toBeLessThanOrEqual(95);
   });
 });
+
+describe('isGenericReason (pitch and batting-order wording)', () => {
+  const ctx = { venue: 'Rawalpindi Cricket Stadium, Rawalpindi', teams: ['Pakistan', 'Sri Lanka'] };
+  it('accepts reasons that cite the pitch or batting position without a number', () => {
+    expect(isGenericReason('All-rounder batting down at seven on a batting paradise where middle-order overs may be limited under lights.', ctx)).toBe(false);
+    expect(isGenericReason('Middle-order role on a batting paradise, though competition for bowling overs limits all-round ceiling.', ctx)).toBe(false);
+    expect(isGenericReason("Rawalpindi's short boundaries challenge left-arm pace against Pakistan's in-form top order.", ctx)).toBe(false);
+  });
+  it('still rejects filler', () => {
+    expect(isGenericReason('He is in good form and a reliable option for the side tonight.', ctx)).toBe(true);
+    expect(isGenericReason('A consistent performer who should do well.', ctx)).toBe(true);
+  });
+});

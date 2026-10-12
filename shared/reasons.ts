@@ -15,11 +15,10 @@ const BANNED = [
   /\bshould perform well\b/i,
   /\bexpected to do well\b/i,
   /\bmatch[- ]winner\b/i,
-  /\bin-form\b/i,
 ];
 
 const ANCHOR_WORDS =
-  /\b(pitch|surface|dew|powerplay|death|middle overs|opener|opening|no\.?\s?\d|number \d|spin|spinner|pace|seam|swing|bounce|turn|boundary|boundaries|chase|chasing|defend|first innings|second innings|average|avg|strike rate|sr|economy|wickets?|runs?|vs\.?|against|at this ground|home|dimension|short side|slow|low|flat|humid|overcast|left-?arm|leg-?spin|off-?spin|yorker)\b/i;
+  /\b(order|deck|track|strip|paradise|surface|bowling first|batting first|batting down|finisher|overs?|lights|floodlights|under lights|three|four|five|six|seven|eight|nine|ten|eleven|pitch|surface|dew|powerplay|death|middle overs|opener|opening|no\.?\s?\d|number \d|spin|spinner|pace|seam|swing|bounce|turn|boundary|boundaries|chase|chasing|defend|first innings|second innings|average|avg|strike rate|sr|economy|wickets?|runs?|vs\.?|against|at this ground|home|dimension|short side|slow|low|flat|humid|overcast|left-?arm|leg-?spin|off-?spin|yorker)\b/i;
 
 export interface ReasonContext {
   venue?: string | null;
