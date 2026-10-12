@@ -34,7 +34,7 @@ function Outcome({ item }: { item: any }) {
       <div className="pf-label">What actually happened</div>
       <div className="pf-score">
         <div><b className="num">{r.total}</b><span>points from this team</span></div>
-        {r.bestPossible !== null && <div><b className="num">{r.bestPossible}</b><span>best possible team</span></div>}
+        {r.bestPossible !== null && <div><b className="num">{r.bestPossible}</b><span>best possible valid team</span></div>}
         <div><b className="num">{played}/{r.picks.length}</b><span>picks actually played</span></div>
       </div>
       <table className="t">

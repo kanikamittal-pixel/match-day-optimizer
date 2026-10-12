@@ -60,6 +60,7 @@ async function buildItems(sb: any): Promise<Item[]> {
       if (one) result = proofResult((pmp ?? []).filter((r: any) => r.match_ref === one).map((r: any) => ({ name: r.player, team: r.team, points: Number(r.points) })), recXI, pl(rec.captain).name, pl(rec.vc).name, 'Cricsheet ball-by-ball record of the match', viaAlias);
       else resultNote = 'The match has been played, but the ball-by-ball record is not published yet (it arrives a few days after the match). The comparison appears here on its own.';
     } else resultNote = 'The match has not been played yet. When it has, the players who actually played and their points appear here on their own.';
+    if (result) result = { ...result, bestPossible: null }; // a rule-valid best team is only computed for back-tests (Insights)
     const changed = JSON.stringify([...fin.xi].sort()) !== JSON.stringify([...rec.xi].sort()) || fin.captain !== rec.captain || fin.vc !== rec.vc;
     items.push({
       key: `m:${d.match_id}`, kind: 'live', title: m.name, date: m.starts_at, recommendedAt: d.created_at, stage: d.stage,
@@ -81,7 +82,7 @@ async function buildItems(sb: any): Promise<Item[]> {
       key: `bt:${r.ref}`, kind: 'backtest', title: `${r.title} (already played)`, date: r.date, recommendedAt: r.createdAt,
       recommended: { xi: r.agent.xi.map(pl), captain: r.agent.captain, vc: r.agent.vc },
       note: `Built before reading the result, using only earlier matches. It scored ${r.metrics.agent} points against a best possible ${r.metrics.hindsight}.`,
-      result: proofResult(r.players.map((p: any) => ({ name: p.name, team: p.team, points: Number(p.actual) })), r.agent.xi.map(pl), r.agent.captain, r.agent.vc, 'Cricsheet ball-by-ball record of the match'), log: [],
+      result: { ...proofResult(r.players.map((p: any) => ({ name: p.name, team: p.team, points: Number(p.actual) })), r.agent.xi.map(pl), r.agent.captain, r.agent.vc, 'Cricsheet ball-by-ball record of the match'), bestPossible: Number(r.metrics.hindsight) }, log: [],
     });
   }
   items.sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')));
