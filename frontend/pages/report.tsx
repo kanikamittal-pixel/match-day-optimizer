@@ -95,7 +95,8 @@ export default function Report() {
     <>
       <h1>Match Report</h1>
       <p className="sub">Pick one match to see exactly what the agent chose, how those players scored against the real top 11, and where it fell short. This page is about one match only; the all-matches view that trains the model is under Insights.</p>
-      <MatchPicker list={list} value={key} onPick={setKey} />
+      <MatchPicker list={list} value={key} onPick={(k) => { setKey(k); setTimeout(() => document.getElementById('report-top')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150); }} />
+      <div id="report-top" style={{ scrollMarginTop: 70 }} />
       {list.length === 0 && <p className="sub">No team has been built yet. Build a team for a match and it appears here.</p>}
       {err && <Banner kind="bad">{err}</Banner>}
       {busy && <div className="skel" style={{ height: 200, marginTop: 14 }} />}
