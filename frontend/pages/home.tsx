@@ -86,7 +86,7 @@ export default function Home() {
         <div className="card stack" style={{ marginTop: 12 }}>
           <div className="row"><input type="text" placeholder="Team A" value={form.team_a} onChange={(e) => setForm({ ...form, team_a: e.target.value })} /><input type="text" placeholder="Team B" value={form.team_b} onChange={(e) => setForm({ ...form, team_b: e.target.value })} /></div>
           <input type="text" placeholder="Venue" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} />
-          <select value={form.format} onChange={(e) => setForm({ ...form, format: e.target.value })}><option>T20</option><option>ODI</option><option>TEST</option></select>
+          <select value={form.format} onChange={(e) => setForm({ ...form, format: e.target.value })}><option>T20</option><option>ODI</option></select>
           <button className="btn primary block" disabled={!form.team_a || !form.team_b} onClick={addManual}>Create match</button>
         </div>
       )}

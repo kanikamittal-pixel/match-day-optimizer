@@ -69,7 +69,9 @@ export const GET = handle(async (req: Request) => {
   };
   const withPhase = (matches as any[]).map((m) => ({ ...m, phase: phaseOf(m), has_team: dec.has(m.id), team_status: dec.get(m.id)?.status ?? null, results_in: hasActuals.has(m.id) }));
   // Hide finished matches Aryan never worked on; keep ones with a team so results can still be entered.
+  // Test / first-class matches are left out: our scoring and fantasy history are T20-only (kept only if a team already exists)
   const visible = withPhase
+    .filter((m) => m.format !== 'TEST' || m.has_team)
     .filter((m) => m.phase !== 'completed' || m.has_team)
     .sort((a, b) => Number(a.format === 'TEST') - Number(b.format === 'TEST') || String(a.starts_at).localeCompare(String(b.starts_at)));
 
