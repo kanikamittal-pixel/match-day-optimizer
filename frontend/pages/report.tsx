@@ -48,7 +48,8 @@ export default function Report() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
-  useEffect(() => { api('/api/report').then((r) => { setList(r.matches); if (r.matches[0]) setKey(r.matches[0].key); }).catch((e) => setErr(e.message)); }, []);
+  useEffect(() => { api('/api/report').then((r) => { setList(r.matches); const played = r.matches.find((m: any) => m.date && new Date(m.date).getTime() < Date.now()) ?? r.matches[0]; // open on the latest match that has been played
+      if (played) setKey(played.key); }).catch((e) => setErr(e.message)); }, []);
   useEffect(() => {
     if (!key) return;
     setBusy(true); setErr('');
