@@ -12,10 +12,30 @@ export default function Results() {
   const [vals, setVals] = useState<Record<string, string>>({});
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const [note, setNote] = useState<{ kind: 'ok' | 'warn'; text: string } | null>(null);
 
   useEffect(() => {
-    api(`/api/matches/${id}/results`).then((r) => { setD(r); setVals(Object.fromEntries(r.players.map((p: any) => [p.key, p.points ?? '']))); }).catch((e) => setErr(e.message));
+    api(`/api/matches/${id}/results`).then((r) => { setD(r); const init = Object.fromEntries(r.players.map((p: any) => [p.key, p.points ?? ''])); setVals(init); if (new URLSearchParams(window.location.search).get('fetch') === '1' && r.players.every((p: any) => p.points === null)) fetchResults(r, init); }).catch((e) => setErr(e.message));
   }, [id]);
+
+  async function fetchResults(current?: any, currentVals?: Record<string, string>) {
+    setFetching(true); setErr(''); setNote(null);
+    try {
+      const r = await api(`/api/matches/${id}/results/fetch`, { method: 'POST' });
+      const base = currentVals ?? vals;
+      const next = { ...base };
+      for (const [k, v] of Object.entries(r.points)) next[k] = String(v);
+      setVals(next);
+      const list = (current ?? d).players;
+      const missing = list.filter((p: any) => !(p.key in r.points)).length;
+      setNote({
+        kind: r.final && !missing ? 'ok' : 'warn',
+        text: `Fetched ${r.matched} of ${list.length} players from the scorecard${r.final ? '' : ' (match not finished yet, so these are provisional)'}. These are estimates from the scoring weights, so Dream11's official numbers can differ slightly. ${missing ? `${missing} player(s) weren’t in the scorecard (didn’t bat, bowl or field, or the name didn’t match): enter them by hand. ` : ''}Check, then save.`,
+      });
+    } catch (e: any) { setErr(e.message); }
+    setFetching(false);
+  }
 
   const total = useMemo(() => {
     if (!d) return 0;
@@ -53,7 +73,9 @@ export default function Results() {
     <>
       <Link href={`/match/${id}/team`} className="sub" style={{ display: 'block', marginTop: 18 }}>← Team</Link>
       <h1>Match results</h1>
-      <p className="sub">Enter each player’s actual Dream11 points (before C/VC multipliers).</p>
+      <p className="sub">Fetch the points from the scorecard, or type each player’s actual Dream11 points (before C/VC multipliers).</p>
+      <button className="btn primary block" onClick={() => fetchResults()} disabled={fetching}>{fetching ? <><Spinner /> Fetching the scorecard…</> : 'Fetch match results'}</button>
+      {note && <Banner kind={note.kind === 'ok' ? 'ok' : 'warn'}>{note.text}</Banner>}
       {err && <Banner kind="bad">{err}</Banner>}
       <h2>Your final XI</h2>
       <div className="card flat">{finals.map(Row)}</div>

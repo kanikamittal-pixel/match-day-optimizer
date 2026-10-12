@@ -176,7 +176,7 @@ export default function TeamPage() {
           </>
         ) : (
           <>
-            <Link href={`/match/${id}/result`} className="btn primary block">{d.hasActuals ? 'Edit match results' : 'Enter match results'}</Link>
+            <Link href={`/match/${id}/result${d.hasActuals ? '' : '?fetch=1'}`} className="btn primary block">{d.hasActuals ? 'Edit match results' : 'Fetch match results'}</Link>
             {!d.hasActuals && <button className="btn ghost block" onClick={() => act('reopen')}>Reopen for edits</button>}
           </>
         )}

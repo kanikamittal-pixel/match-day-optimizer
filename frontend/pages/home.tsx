@@ -34,8 +34,8 @@ export default function Home() {
         <div className="banner warn">
           <b>Waiting for results ({data.awaiting.length})</b>
           {data.awaiting.map((a) => (
-            <Link key={a.id} href={`/match/${a.id}/result`} style={{ display: 'block', marginTop: 6, textDecoration: 'underline' }}>
-              {a.name}: enter points (under 2 min)
+            <Link key={a.id} href={`/match/${a.id}/result?fetch=1`} style={{ display: 'block', marginTop: 6, textDecoration: 'underline' }}>
+              {a.name}: fetch the result
             </Link>
           ))}
         </div>

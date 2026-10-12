@@ -93,7 +93,7 @@ export default function MatchSetup() {
       <h2>3 · Playing XI</h2>
       <div className="card">
         {xi && <p style={{ marginTop: 0 }}><span className={`pill ${final ? 'ok' : 'warn'}`}>{final ? 'Confirmed XI' : 'Probable XI · pre-toss'}</span></p>}
-        <XIEditor key={`${d.credits.length}-${xiCount}`} matchId={id} teamA={m.team_a} teamB={m.team_b} players={d.credits} initial={xi} toss={m.toss} isManual={id.startsWith('manual-') || id.startsWith('rb-')} onSaved={load} />
+        <XIEditor key={d.credits.length} matchId={id} teamA={m.team_a} teamB={m.team_b} players={d.credits} initial={xi} toss={m.toss} isManual={id.startsWith('manual-') || id.startsWith('rb-')} onSaved={load} />
       </div>
 
       <h2>4 · Pitch & conditions</h2>

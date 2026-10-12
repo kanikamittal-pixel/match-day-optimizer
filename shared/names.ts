@@ -8,6 +8,7 @@ export function nameKey(s: string): string {
 
 function tokens(s: string): string[] {
   return s
+    .replace(/\(.*?\)/g, ' ') // "K Mendis (WK)" -> "K Mendis"
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')

@@ -39,7 +39,7 @@ export const PUT = handle(async (req: Request, { params }: { params: Promise<{ i
   }
   const xi: MatchXI = { teamA, teamB, impact: b.impact ?? [], confirmed: !!b.confirmed, source: b.pasted ? 'manual' : b.source ?? 'manual' };
   must(await sb.from('matches').update({ xi }).eq('id', id), 'save XI');
-  return { xi, unmatched };
+  return { xi, unmatched, impact: xi.impact };
 });
 
 /** Pull toss + squads from CricketData (cached). Squad is a pool, not the announced XI; Aryan confirms the XI. */
