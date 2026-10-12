@@ -370,3 +370,9 @@ details.cond summary::-webkit-details-marker { display: none; }
 .ov-heat { display: grid; gap: 4px; align-items: center; margin-bottom: 8px; }
 .ov-cell { text-align: center; padding: 9px 4px; border-radius: 8px; font-weight: 700; } .ov-hc { text-align: center; font-size: 11px; } .ov-rl { font-size: 13px; }
 .ov-change { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; } .ov-change:first-child { border-top: 0; }
+
+.ov-div { display: grid; grid-template-columns: minmax(130px, 42%) 1fr 48px; gap: 8px; align-items: center; margin: 6px 0; font-size: 13px; }
+.ov-dl { color: var(--mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-dt { position: relative; height: 14px; background: var(--card2); border-radius: 7px; overflow: hidden; }
+.ov-zero { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: var(--mute); z-index: 1; }
+.ov-db { position: absolute; top: 0; bottom: 0; } .ov-db.pos { background: color-mix(in srgb, var(--good) 55%, transparent); } .ov-db.neg { background: color-mix(in srgb, var(--red) 55%, transparent); } .ov-db.ad { background: var(--good); }

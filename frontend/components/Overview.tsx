@@ -27,8 +27,9 @@ export default function Overview() {
   const beats = latest.filter((r) => r.metrics.agent > r.metrics.baseline).length;
   const capTop3 = latest.filter((r) => r.metrics.captainRank <= 3).length;
   const maxPts = Math.max(...latest.flatMap((r) => [r.metrics.agent, r.metrics.baseline, r.metrics.hindsight]));
-  const methods: any[] = f ? [...f.table].sort((a: any, b: any) => a.mae - b.mae).slice(0, 7) : [];
-  const maxMae = methods.length ? Math.max(...methods.map((m) => m.mae)) : 1;
+  // Gain in team points per match against the old method (the one we replaced), best first; the adopted one is marked
+  const methods: any[] = f ? f.table.filter((t: any) => t.id !== 'v1').sort((a: any, b: any) => b.vsV1.top11 - a.vsV1.top11) : [];
+  const maxAbs = methods.length ? Math.max(...methods.map((m) => Math.abs(m.vsV1.top11)), 1) : 1;
   const roles = ['WK', 'BAT', 'AR', 'BOWL'];
   const bias = (r: Rec, role: string) => r.byRole.find((g: any) => g.key === role)?.bias as number | undefined;
   const heat = (v: number | undefined) => (typeof v !== 'number' ? 'transparent' : v > 0 ? `color-mix(in srgb, var(--red) ${Math.min(70, Math.abs(v) * 2.2)}%, transparent)` : `color-mix(in srgb, var(--blue) ${Math.min(70, Math.abs(v) * 2.2)}%, transparent)`);
@@ -58,12 +59,20 @@ export default function Overview() {
 
       {methods.length > 0 && (
         <>
-          <h2>Which method predicts best</h2>
+          <h2>Which way of predicting builds the best team</h2>
           <div className="card">
-            {methods.map((m: any, i: number) => (
-              <div key={m.id} className="bt-bar ov-method"><span className="bt-l" title={m.label}>{m.label}</span><div className="bt-track"><div className={`bt-fill ${i === 0 ? 'best' : 'base'}`} style={{ width: w(m.mae, maxMae) }} /></div><b className="num">{m.mae}</b></div>
-            ))}
-            <div className="sub">Average points missed per player over {f.matches.toLocaleString()} past matches. Shorter is better; the green bar is the best.</div>
+            {methods.map((m: any) => {
+              const v = m.vsV1.top11;
+              const adopted = m.id === 'ewm';
+              return (
+                <div key={m.id} className="ov-div">
+                  <span className="ov-dl" title={m.label}>{m.label.replace(/^\d+% career mean \+ 50% /, '50% career + 50% ')}{adopted && <b className="pill ok" style={{ marginLeft: 6 }}>in use</b>}</span>
+                  <div className="ov-dt"><i className="ov-zero" /><div className={`ov-db ${v >= 0 ? 'pos' : 'neg'} ${adopted ? 'ad' : ''}`} style={{ width: `${(Math.abs(v) / maxAbs) * 50}%`, [v >= 0 ? 'left' : 'right']: '50%' }} /></div>
+                  <b className="num" style={{ color: v >= 0 ? 'var(--good)' : 'var(--red)' }}>{v > 0 ? '+' : ''}{v}</b>
+                </div>
+              );
+            })}
+            <div className="sub">Team points per match gained or lost against the old method (the centre line), tested on {f.matches.toLocaleString()} past matches. Right of the line is better.</div>
           </div>
         </>
       )}
