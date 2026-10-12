@@ -60,7 +60,7 @@ export default function Settings() {
       {weights.map((w) => (
         <div key={w.version} className="card">
           <div className="row sb"><div><b>Version {w.version}</b> {w.active && <span className="pill ok">Active</span>}<div className="sub">{w.note}</div></div>
-            <div className="row"><button className="btn sm ghost" onClick={() => setOpenV(openV === w.version ? null : w.version)}>{openV === w.version ? 'Hide' : 'View'}</button>{!w.active && <button className="btn sm" onClick={() => call(() => api('/api/settings/weights', { method: 'POST', json: { activate: w.version } }), `Rolled back to v${w.version}`)}>Restore</button>}</div></div>
+            <div className="row"><button className="btn sm ghost" onClick={() => setOpenV(openV === w.version ? null : w.version)}>{openV === w.version ? 'Hide' : 'View'}</button>{!w.active && <button className="btn sm" onClick={() => call(() => api('/api/settings/weights', { method: 'POST', json: { activate: w.version } }), `Version ${w.version} is now active`)}>{w.version > (active?.version ?? 0) ? 'Activate' : 'Restore'}</button>}</div></div>
           {openV === w.version && <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: 'var(--mute)' }}>{Object.entries(w.weights).map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>}
         </div>
       ))}

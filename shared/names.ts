@@ -37,3 +37,24 @@ export function matchName(input: string, known: { key: string; name: string }[])
   }
   return null;
 }
+
+/**
+ * Strict identity match for linking a short Dream11 name ("S Farhan", "C Wickramas…") to a full name inside ONE team's
+ * roster. Requires the same surname (or the shown prefix of it) AND the same first initial, and exactly one hit.
+ * Returns null rather than guessing, because showing another player's history is worse than none.
+ */
+export function matchStrict(input: string, fullNames: string[]): string | null {
+  const truncated = /(…|\.\.\.)\s*$/.test(input.trim());
+  const t = tokens(input.replace(/(…|\.\.\.)/g, ''));
+  if (!t.length) return null;
+  const sur = t[t.length - 1];
+  const initial = t.length > 1 ? t[0][0] : '';
+  const hits = [...new Set(fullNames)].filter((n) => {
+    const nt = tokens(n);
+    if (nt.length < 1) return false;
+    const last = nt[nt.length - 1];
+    const surOk = truncated ? last.startsWith(sur) && sur.length >= 3 : last === sur;
+    return surOk && (!initial || nt[0][0] === initial);
+  });
+  return hits.length === 1 ? hits[0] : null;
+}

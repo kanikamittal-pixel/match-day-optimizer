@@ -1,6 +1,6 @@
 import { handle } from '@/backend/http';
 import { must, requireUser } from '@/backend/integrations/supabase';
-import { errorOverTime, evalRows, groupStats, MIN_N, plainFindings, playbookNudges, scoreboardAndCvc } from '@/backend/services/insights';
+import { baselineComparison, errorOverTime, evalRows, groupStats, MIN_N, plainFindings, playbookNudges, scoreboardAndCvc } from '@/backend/services/insights';
 
 export const GET = handle(async () => {
   const { sb } = await requireUser();
@@ -18,6 +18,7 @@ export const GET = handle(async () => {
     groups: stats.filter((s) => s.conclusive),
     ...board,
     nudges: await playbookNudges(sb),
+    baseline: await baselineComparison(sb),
     suggestions: must(await sb.from('weight_suggestions').select('*').eq('status', 'pending').order('created_at', { ascending: false }), 'suggestions'),
   };
 });

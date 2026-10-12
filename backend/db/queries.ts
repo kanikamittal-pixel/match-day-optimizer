@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { must } from '@/backend/integrations/supabase';
 import { DEFAULT_RULES, DEFAULT_WEIGHTS } from '@/shared/weights';
+import { flattenRules } from '@/shared/scoring';
 import type { Candidate, Rules, MatchXI, Role } from '@/shared/types';
 import { HttpError } from '@/backend/http';
 
@@ -11,6 +12,11 @@ export async function ensureSeed(sb: SupabaseClient) {
   const { data: w } = await sb.from('scoring_weights').select('version').limit(1);
   if (!w?.length)
     must(await sb.from('scoring_weights').insert({ version: 1, weights: DEFAULT_WEIGHTS, note: 'Initial Dream11 T20 weights', active: true }), 'seed weights');
+  // v2 = the current Dream11 T20 table (from the Predict-11 research). Seeded INACTIVE: Aryan activates it in Settings
+  // after checking the values against the points-system page in the Dream11 app.
+  const { data: v2 } = await sb.from('scoring_weights').select('version').eq('version', 2).maybeSingle();
+  if (!v2)
+    must(await sb.from('scoring_weights').insert({ version: 2, weights: flattenRules(), note: 'Current Dream11 T20 table (boundary +4, six +6, wicket +30, dot ball +1, SR bands). Not active until you approve it.', active: false }), 'seed weights v2');
 }
 
 export async function loadRules(sb: SupabaseClient): Promise<Rules> {

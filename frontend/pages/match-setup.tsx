@@ -42,9 +42,7 @@ export default function MatchSetup() {
     setRun({ step: 'Checking inputs…' });
     try {
       if (!ctx) { setRun({ step: 'Researching pitch, weather and team news…' }); await api(`/api/matches/${id}/context`, { method: 'POST' }); }
-      setRun({ step: 'Looking up each player’s overall stats…' });
-      try { await api(`/api/matches/${id}/stats`, { method: 'POST' }); } catch { /* stats are optional; predictions say so when missing */ }
-      setRun({ step: 'Estimating expected points for every player…' });
+      setRun({ step: 'Pulling each player’s fantasy history and estimating expected points…' });
       await api(`/api/matches/${id}/predict`, { method: 'POST' });
       setRun({ step: 'Building the best valid XI and picking C/VC…' });
       await api(`/api/matches/${id}/build${force ? '?force=1' : ''}`, { method: 'POST' });

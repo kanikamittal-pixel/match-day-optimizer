@@ -2,7 +2,7 @@ import { handle } from '@/backend/http';
 import { must, requireUser } from '@/backend/integrations/supabase';
 import { loadActiveWeights } from '@/backend/db/queries';
 import { preflight, stageLabel } from '@/backend/services/preflight';
-import { recentForm } from '@/backend/services/history';
+import { historyFor } from '@/backend/services/history';
 import { predictExpectedPoints } from '@/backend/services/pipeline';
 
 
@@ -12,8 +12,8 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   const { sb } = await requireUser();
   const { match, pool, stage } = await preflight(sb, id);
   const { version, weights } = await loadActiveWeights(sb);
-  const { data: st } = await sb.from('api_cache').select('payload').eq('key', `stats:${id}`).maybeSingle();
-  const rows = await predictExpectedPoints(sb, { match, pool, weights, weightsVersion: version, stageLabel: stageLabel(stage), stats: st?.payload?.players, form: await recentForm(sb, pool.map((p) => p.key), id) });
+  const history = await historyFor(sb, pool.map((p) => ({ key: p.key, name: p.name, team: p.team })), match.starts_at ?? new Date().toISOString(), match.format ?? 'T20', id);
+  const rows = await predictExpectedPoints(sb, { match, pool, weights, weightsVersion: version, stageLabel: stageLabel(stage), history });
   const byKey = new Map(pool.map((p) => [p.key, p]));
   must(await sb.from('predictions').delete().eq('match_id', id), 'clear predictions');
   must(
@@ -33,5 +33,13 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
     ),
     'save predictions',
   );
-  return { count: rows.length, stage };
+  // keep how each number was built (base + adjustment) so the team card can show it
+  must(
+    await sb.from('api_cache').upsert([
+      { key: `stats:${id}`, payload: { players: history }, fetched_at: new Date().toISOString(), ttl_seconds: 86400 },
+      { key: `parts:${id}`, payload: { players: Object.fromEntries(rows.map((r) => [r.key, { base: r.base, adjustment: r.adjustment, basis: r.basis }])) }, fetched_at: new Date().toISOString(), ttl_seconds: 86400 },
+    ]),
+    'save parts',
+  );
+  return { count: rows.length, stage, withBase: rows.filter((r) => r.base !== null).length };
 });

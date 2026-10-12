@@ -1,6 +1,5 @@
 import { handle } from '@/backend/http';
 import { must, requireUser } from '@/backend/integrations/supabase';
-import { recentForm } from '@/backend/services/history';
 import { loadCredits, loadMatch, loadRules, loadActiveWeights } from '@/backend/db/queries';
 
 export const GET = handle(async (_req: Request, { params }: { params: Promise<{ id: string }> }) => {
@@ -11,7 +10,8 @@ export const GET = handle(async (_req: Request, { params }: { params: Promise<{ 
   const predictions = must(await sb.from('predictions').select('*').eq('match_id', id), 'predictions');
   const actuals = must(await sb.from('actual_points').select('*').eq('match_id', id), 'actuals');
   const { data: st } = await sb.from('api_cache').select('payload').eq('key', `stats:${id}`).maybeSingle();
-  return { match, credits, rules, weightsVersion: weights.version, decision, predictions, hasActuals: actuals.length > 0, stats: st?.payload?.players ?? {}, form: await recentForm(sb, (predictions as any[]).map((p) => p.name_key), id) };
+  const { data: pt } = await sb.from('api_cache').select('payload').eq('key', `parts:${id}`).maybeSingle();
+  return { match, credits, rules, weightsVersion: weights.version, decision, predictions, hasActuals: actuals.length > 0, stats: st?.payload?.players ?? {}, parts: pt?.payload?.players ?? {} };
 });
 
 export const PATCH = handle(async (req: Request, { params }: { params: Promise<{ id: string }> }) => {

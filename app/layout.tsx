@@ -10,7 +10,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <Nav />
-        <main className="shell">{children}</main>
+        <main className="shell">
+          {children}
+          <footer className="foot">
+            Player history from <a href="https://cricsheet.org" target="_blank" rel="noreferrer">Cricsheet</a> (ODC-BY). Not affiliated with Dream11.
+          </footer>
+        </main>
       </body>
     </html>
   );

@@ -77,6 +77,21 @@ export default function Insights() {
         <p className="sub">Your overrides beat the agent: gut {d.tagStats.gut.aryanWins}/{d.tagStats.gut.n} · reasoned {d.tagStats.reasoned.aryanWins}/{d.tagStats.reasoned.n}.</p>
       )}
 
+      <h2>Agent vs a simple baseline</h2>
+      <div className="card">
+        <div style={{ fontWeight: 700 }}>{d.baseline.verdict}</div>
+        {d.baseline.maeAgent !== null && (
+          <table className="t" style={{ marginTop: 8 }}>
+            <thead><tr><th></th><th className="r">Agent</th><th className="r">Last-5 avg</th></tr></thead>
+            <tbody>
+              <tr><td>Average miss (pts/player)</td><td className="r num">{d.baseline.maeAgent}</td><td className="r num">{d.baseline.maeBaseline}</td></tr>
+              {d.baseline.spearmanAgent !== null && <tr><td>Ranks players correctly (0–1)</td><td className="r num">{d.baseline.spearmanAgent}</td><td className="r num">{d.baseline.spearmanBaseline}</td></tr>}
+            </tbody>
+          </table>
+        )}
+        <div className="sub" style={{ marginTop: 6 }}>{d.baseline.n} players across {d.baseline.matches} match{d.baseline.matches === 1 ? '' : 'es'}. The baseline is the average of each player’s last 5 fantasy scores before the match.</div>
+      </div>
+
       {d.nudges.length > 0 && (
         <>
           <h2>Make it a rule?</h2>

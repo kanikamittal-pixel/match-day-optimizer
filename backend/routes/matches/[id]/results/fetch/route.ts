@@ -1,7 +1,7 @@
 import { handle, HttpError } from '@/backend/http';
 import { must, requireUser } from '@/backend/integrations/supabase';
 import { cricket, TTL } from '@/backend/integrations/cricketdata';
-import { loadActiveWeights, loadMatch } from '@/backend/db/queries';
+import { loadCredits, loadMatch } from '@/backend/db/queries';
 import { pointsFromScorecard } from '@/backend/services/scorecard';
 import { matchName } from '@/shared/names';
 
@@ -32,12 +32,15 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   const d = sc.data.data ?? {};
   if (!d.scorecard?.length) throw new HttpError(409, d.matchStarted ? 'The scorecard is empty so far. Try again once the match has progressed.' : 'The match hasn’t started yet, so there are no results to fetch.');
 
-  const { weights } = await loadActiveWeights(sb);
-  const format = String(d.matchType ?? m.format ?? 'T20').toUpperCase().includes('T20') ? 'T20' : (m.format ?? 'T20');
-  const scored = pointsFromScorecard(d.scorecard, weights, format);
-
+  const credits = await loadCredits(sb, id);
+  const roleByKey = new Map(credits.map((c) => [c.name_key, c.role]));
   const preds = must(await sb.from('predictions').select('name_key,player_name').eq('match_id', id), 'predictions') as { name_key: string; player_name: string }[];
   const known = preds.map((p) => ({ key: p.name_key, name: p.player_name }));
+  const roleOf = (name: string) => {
+    const k = matchName(name, known);
+    return k ? roleByKey.get(k) : undefined;
+  };
+  const scored = pointsFromScorecard(d.scorecard, roleOf);
   const points: Record<string, number> = {};
   const unmatched: string[] = [];
   for (const s of scored) {

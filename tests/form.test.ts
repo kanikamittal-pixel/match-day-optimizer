@@ -16,3 +16,37 @@ describe('summariseForm', () => {
     expect(formLine(undefined)).toContain('no history');
   });
 });
+
+import { blendBase } from '../shared/form';
+import { matchStrict } from '../shared/names';
+
+describe('blendBase (equal weights)', () => {
+  it('averages overall and recent 50/50 when both are reliable', () => {
+    expect(blendBase({ n_all: 40, mean_all: 30, n_recent: 10, mean_recent: 50 })).toEqual({ base: 40, basis: '50% overall + 50% recent' });
+  });
+  it('falls back to the one that is reliable, and says so', () => {
+    expect(blendBase({ n_all: 40, mean_all: 30, n_recent: 2, mean_recent: 90 })?.base).toBe(30);
+    expect(blendBase({ n_all: 3, mean_all: 30, n_recent: 5, mean_recent: 44 })?.base).toBe(44);
+    expect(blendBase({ n_all: 3, mean_all: 30, n_recent: 2, mean_recent: 44 })).toBeNull();
+  });
+});
+
+describe('matchStrict', () => {
+  const squad = ['Sahibzada Farhan', 'Fakhar Zaman', 'Naseem Shah', 'Shadab Khan', 'Imad Wasim', 'Imran Khan', 'Mohammad Nawaz', 'Hasan Nawaz'];
+  it('needs surname AND initial and exactly one hit', () => {
+    expect(matchStrict('S Farhan', squad)).toBe('Sahibzada Farhan');
+    expect(matchStrict('N Shah', squad)).toBe('Naseem Shah');
+    expect(matchStrict('S Khan', squad)).toBe('Shadab Khan'); // Imran Khan has a different initial
+    expect(matchStrict('H Nawaz', squad)).toBe('Hasan Nawaz');
+    expect(matchStrict('M Nawaz', squad)).toBe('Mohammad Nawaz');
+    expect(matchStrict('I Khan', squad)).toBe('Imran Khan');
+  });
+  it('refuses to guess', () => {
+    expect(matchStrict('Nawaz', squad)).toBeNull(); // no initial, two Nawaz
+    expect(matchStrict('A Zaman', squad)).toBeNull();
+    expect(matchStrict('K Mendis (WK)', ['Kusal Mendis', 'Kamindu Mendis'])).toBeNull(); // two K Mendis
+  });
+  it('handles Dream11 truncation', () => {
+    expect(matchStrict('C Wickramas…', ['Charith Wickramasinghe', 'Dasun Shanaka'])).toBe('Charith Wickramasinghe');
+  });
+});

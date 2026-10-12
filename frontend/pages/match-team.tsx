@@ -6,7 +6,7 @@ import { api } from '@/frontend/api';
 import { Banner, Sheet, Spinner, short, useToast } from '@/frontend/components/ui';
 import { ROLES } from '@/shared/types';
 import { creditsUsed, validateTeam } from '@/shared/rules';
-import { formLine } from '@/shared/form';
+import { historyLine, partsLine } from '@/shared/form';
 
 type Pending = { change: { kind: 'swap' | 'captain' | 'vice'; from: string; to: string }; preview: any } | null;
 const WHY = ['Venue record', 'Pitch', 'Matchup', 'Team news', 'Balance'];
@@ -15,7 +15,10 @@ export default function TeamPage() {
   const { id } = useParams<{ id: string }>();
   const [d, setD] = useState<any>(null);
   const [err, setErr] = useState('');
-  const [sheet, setSheet] = useState<{ type: 'player' | 'swap'; key: string } | null>(null);
+  const [sheet, setSheet] = useState<{ type: 'player' | 'swap' | 'bench'; key: string } | null>(null);
+  const [locks, setLocks] = useState<Set<string>>(new Set());
+  const [excludes, setExcludes] = useState<Set<string>>(new Set());
+  const [reopt, setReopt] = useState<any>(null);
   const [pending, setPending] = useState<Pending>(null);
   const [tag, setTag] = useState<'gut' | 'reasoned'>('gut');
   const [why, setWhy] = useState('');
@@ -33,8 +36,8 @@ export default function TeamPage() {
     const fin = d.decision.final;
     const rec = d.decision.recommended;
     const stats: Record<string, any> = d.stats ?? {};
-    const line = (st: any) => (st?.found ? `${String(st.scope).split(' ')[0]} career: ${st.matches} m · ${st.runs} runs${st.batting_avg ? ` · avg ${st.batting_avg}` : ''}${st.strike_rate ? ` · SR ${st.strike_rate}` : ''}${st.wickets ? ` · ${st.wickets} wkts${st.economy ? ` · eco ${st.economy}` : ''}` : ''}` : null);
-    const mk = (k: string) => ({ key: k, form: formLine(d.form?.[k]), career: line(stats[k]), name: cred.get(k)?.name ?? preds.get(k)?.player_name ?? k, team: cred.get(k)?.team ?? '', role: cred.get(k)?.role ?? preds.get(k)?.role, credit: Number(cred.get(k)?.credit ?? NaN), xp: Number(preds.get(k)?.expected_points ?? 0), reason: preds.get(k)?.reason ?? '' });
+    const parts: Record<string, any> = d.parts ?? {};
+    const mk = (k: string) => ({ key: k, hist: historyLine(stats[k]), parts: partsLine(parts[k]?.base, parts[k]?.adjustment), name: cred.get(k)?.name ?? preds.get(k)?.player_name ?? k, team: cred.get(k)?.team ?? '', role: cred.get(k)?.role ?? preds.get(k)?.role, credit: Number(cred.get(k)?.credit ?? NaN), xp: Number(preds.get(k)?.expected_points ?? 0), reason: preds.get(k)?.reason ?? '' });
     const xi = fin.xi.map(mk);
     const eligible = new Set<string>([...(d.match.xi?.teamA ?? []), ...(d.match.xi?.teamB ?? []), ...(d.match.xi?.impact ?? [])]);
     const benchAll = [...eligible].filter((k) => !fin.xi.includes(k) && preds.has(k)).map(mk).sort((a, b) => b.xp - a.xp);
@@ -67,6 +70,25 @@ export default function TeamPage() {
   async function commit(change = pending!.change, t = tag, reason = why) {
     setBusy(true);
     try { await api(`/api/matches/${id}/decision`, { method: 'POST', json: { action: 'commit', change, tag: t, reason } }); setPending(null); await load(); } catch (e: any) { setToast(e.message); }
+    setBusy(false);
+  }
+  const flip = (set: Set<string>, k: string) => { const n = new Set(set); n.has(k) ? n.delete(k) : n.add(k); return n; };
+  const toggleLock = (k: string) => { setLocks(flip(locks, k)); if (excludes.has(k)) setExcludes(flip(excludes, k)); setSheet(null); };
+  const toggleExclude = (k: string) => { setExcludes(flip(excludes, k)); if (locks.has(k)) setLocks(flip(locks, k)); setSheet(null); };
+  async function previewReopt() {
+    setBusy(true);
+    try {
+      const r = await api(`/api/matches/${id}/decision`, { method: 'POST', json: { action: 'reopt_preview', locks: [...locks], excludes: [...excludes] } });
+      setReopt(r); setTag('gut'); setWhy('');
+    } catch (e: any) { setToast(e.message); }
+    setBusy(false);
+  }
+  async function commitReopt() {
+    setBusy(true);
+    try {
+      await api(`/api/matches/${id}/decision`, { method: 'POST', json: { action: 'reopt_commit', locks: [...locks], excludes: [...excludes], tag, reason: why } });
+      setReopt(null); setLocks(new Set()); setExcludes(new Set()); await load();
+    } catch (e: any) { setToast(e.message); }
     setBusy(false);
   }
   async function applyFix(f: any) {
@@ -147,6 +169,7 @@ export default function TeamPage() {
                           {init}
                           {p.key === view.fin.captain && <span className="d-badge c">C</span>}
                           {p.key === view.fin.vc && <span className="d-badge vc">VC</span>}
+                          {locks.has(p.key) && <span className="d-lock" title="Locked in">🔒</span>}
                         </div>
                         <div className="d-name">{last}</div>
                         <div className="d-cr">{p.credit > 0 ? `${p.credit} Cr` : `${p.xp} xP`}</div>
@@ -176,7 +199,7 @@ export default function TeamPage() {
               <div className="xp num">{p.xp}</div>
             </div>
             <div className="r">{p.reason}</div>
-            <div className="r dim">{p.career ?? 'Career stats: not found'} · {p.form}</div>
+            <div className="r dim">{p.parts ? `${p.parts} · ` : ''}{p.hist}</div>
           </div>
         ))}
       </div>
@@ -190,8 +213,8 @@ export default function TeamPage() {
           <h2>Bench calls</h2>
           <div className="card flat">
             {view.benchAll.slice(0, 8).map((p: any) => (
-              <div key={p.key} className="row sb" style={{ padding: '10px 14px', borderTop: '1px solid var(--line)' }}>
-                <div className="grow"><b>{p.name}</b> <span className="sub">{p.role} · {short(p.team)}</span><div className="sub">{view.benchReason.get(p.key) ?? p.reason}</div></div>
+              <div key={p.key} className="row sb" style={{ padding: '10px 14px', borderTop: '1px solid var(--line)', cursor: final ? 'default' : 'pointer', opacity: excludes.has(p.key) ? 0.5 : 1 }} onClick={() => !final && setSheet({ type: 'bench', key: p.key })}>
+                <div className="grow"><b style={{ textDecoration: excludes.has(p.key) ? 'line-through' : 'none' }}>{p.name}</b> <span className="sub">{p.role} · {short(p.team)}</span>{locks.has(p.key) && <span className="pill ok" style={{ marginLeft: 6 }}>Locked</span>}{excludes.has(p.key) && <span className="pill bad" style={{ marginLeft: 6 }}>Excluded</span>}<div className="sub">{view.benchReason.get(p.key) ?? p.reason}</div></div>
                 <div className="num">{p.xp}<div className="sub">{cr(p.credit)}</div></div>
               </div>
             ))}
@@ -224,6 +247,18 @@ export default function TeamPage() {
             <button className="btn block" disabled={sel.key === view.fin.captain} onClick={() => preview({ kind: 'captain', from: view.fin.captain, to: sel.key })}>Make captain (2x)</button>
             <button className="btn block" disabled={sel.key === view.fin.vc} onClick={() => preview({ kind: 'vice', from: view.fin.vc, to: sel.key })}>Make vice-captain (1.5x)</button>
             <button className="btn block" onClick={() => setSheet({ type: 'swap', key: sel.key })}>Swap this player out…</button>
+            <button className="btn block" onClick={() => toggleLock(sel.key)}>{locks.has(sel.key) ? '🔓 Unlock' : '🔒 Lock in XI'}</button>
+            <button className="btn block danger" onClick={() => toggleExclude(sel.key)}>{excludes.has(sel.key) ? 'Include again' : 'Exclude from the XI'}</button>
+          </div>
+        </Sheet>
+      )}
+      {sheet?.type === 'bench' && sel && (
+        <Sheet onClose={() => setSheet(null)}>
+          <b style={{ fontSize: 17 }}>{sel.name}</b>
+          <p className="sub">{sel.role} · {sel.team} · {sel.xp} xP · {cr(sel.credit)} · on the bench</p>
+          <div className="stack">
+            <button className="btn block" onClick={() => toggleLock(sel.key)}>{locks.has(sel.key) ? '🔓 Unlock' : '🔒 Lock into the XI'}</button>
+            <button className="btn block danger" onClick={() => toggleExclude(sel.key)}>{excludes.has(sel.key) ? 'Include again' : 'Exclude from consideration'}</button>
           </div>
         </Sheet>
       )}
@@ -264,6 +299,31 @@ export default function TeamPage() {
           </div>
           <div className="chips" style={{ marginBottom: 14 }}>{WHY.map((w) => <span key={w} className={`chip ${why === w ? 'on' : ''}`} onClick={() => { setWhy(why === w ? '' : w); if (why !== w) setTag('reasoned'); }}>{w}</span>)}</div>
           <div className="row"><button className="btn ghost grow" onClick={() => setPending(null)}>Cancel</button><button className="btn primary grow" disabled={busy} onClick={() => commit()}>Save my call</button></div>
+        </Sheet>
+      )}
+      {(locks.size > 0 || excludes.size > 0) && !final && !reopt && (
+        <div className="reopt-bar">
+          <button className="btn primary grow" disabled={busy} onClick={previewReopt}>Re-optimise · {locks.size} locked · {excludes.size} excluded</button>
+          <button className="btn ghost" onClick={() => { setLocks(new Set()); setExcludes(new Set()); }}>Clear</button>
+        </div>
+      )}
+      {reopt && (
+        <Sheet onClose={() => setReopt(null)}>
+          <b style={{ fontSize: 17 }}>Re-optimise around your picks</b>
+          <div className="banner" style={{ marginTop: 10 }}>{reopt.agentCase}</div>
+          {reopt.changes.map((c: any) => (
+            <div key={c.from} className="row sb" style={{ padding: '8px 0', borderTop: '1px solid var(--line)' }}>
+              <span>{c.fromName} <span className="sub">({c.fromXp} xP)</span> → <b>{c.toName}</b> <span className="sub">({c.toXp} xP)</span></span>
+            </div>
+          ))}
+          {reopt.captain && <p className="sub">Captain moves from {reopt.captain.from} to {reopt.captain.to} (the old captain left the XI).</p>}
+          {reopt.vc && <p className="sub">Vice-captain moves from {reopt.vc.from} to {reopt.vc.to}.</p>}
+          <div className="seg" style={{ margin: '12px 0' }}>
+            <button className={tag === 'gut' ? 'on' : ''} onClick={() => setTag('gut')}>Gut</button>
+            <button className={tag === 'reasoned' ? 'on' : ''} onClick={() => setTag('reasoned')}>Reasoned</button>
+          </div>
+          <div className="chips" style={{ marginBottom: 14 }}>{WHY.map((w) => <span key={w} className={`chip ${why === w ? 'on' : ''}`} onClick={() => { setWhy(why === w ? '' : w); if (why !== w) setTag('reasoned'); }}>{w}</span>)}</div>
+          <div className="row"><button className="btn ghost grow" onClick={() => setReopt(null)}>Cancel</button><button className="btn primary grow" disabled={busy || !reopt.changes.length} onClick={commitReopt}>{reopt.changes.length ? 'Save this team' : 'Nothing to change'}</button></div>
         </Sheet>
       )}
       {toast}

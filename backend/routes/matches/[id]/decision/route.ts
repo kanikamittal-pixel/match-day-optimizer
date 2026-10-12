@@ -1,7 +1,7 @@
 import { handle, HttpError } from '@/backend/http';
 import { must, requireUser } from '@/backend/integrations/supabase';
 import { eligibleKeys, loadCredits, loadMatch, loadRules, situationKey, toCandidates } from '@/backend/db/queries';
-import { suggestFixes, validateTeam, creditsUsed } from '@/shared/rules';
+import { buildBestXI, suggestFixes, validateTeam, creditsUsed } from '@/shared/rules';
 import type { DecisionEntry, FinalTeam, Recommended } from '@/shared/types';
 
 type Change = { kind: 'swap' | 'captain' | 'vice'; from: string; to: string };
@@ -78,6 +78,50 @@ export const POST = handle(async (req: Request, { params }: { params: Promise<{ 
     const keys = entries.map((e) => (e.kind === 'swap' ? situationKey(byKey.get(e.to)?.role ?? '?', match.context?.pitch_type) : e.kind === 'captain' ? 'Captaincy' : 'Vice-captaincy'));
     must(await sb.from('team_decisions').update({ status: 'final', finalized_at: new Date().toISOString(), situation_keys: keys }).eq('match_id', id), 'finalize');
     return { ok: true };
+  }
+
+  // Lock / exclude players, then let the exact optimiser rebuild the XI around those choices.
+  if (body.action === 'reopt_preview' || body.action === 'reopt_commit') {
+    const locks: string[] = Array.isArray(body.locks) ? body.locks : [];
+    const excludes: string[] = Array.isArray(body.excludes) ? body.excludes : [];
+    if (locks.some((k) => excludes.includes(k))) throw new HttpError(400, 'A player can’t be both locked and excluded.');
+    const built = buildBestXI(pool.filter((p) => !excludes.includes(p.key)), rules, locks);
+    if (!built) throw new HttpError(422, 'No valid XI exists with those locks and exclusions. Check role limits, the team cap and credits, or unlock someone.');
+    const newXI = built.team.map((p) => p.key);
+    const outKeys = current.xi.filter((k) => !newXI.includes(k));
+    const inKeys = newXI.filter((k) => !current.xi.includes(k));
+    // pair each removed player with an incoming player of the same role first, then by points
+    const pairs: { from: string; to: string }[] = [];
+    const pool2 = [...inKeys];
+    for (const from of outKeys) {
+      const i = Math.max(pool2.findIndex((k) => byKey.get(k)?.role === byKey.get(from)?.role), -1);
+      const idx = i >= 0 ? i : 0;
+      if (pool2.length) pairs.push({ from, to: pool2.splice(idx, 1)[0] });
+    }
+    const byXp = [...built.team].sort((a, b) => b.xp - a.xp).map((p) => p.key);
+    let captain = newXI.includes(current.captain) ? current.captain : byXp.find((k) => k !== current.vc) ?? byXp[0];
+    let vc = newXI.includes(current.vc) && current.vc !== captain ? current.vc : byXp.find((k) => k !== captain)!;
+    const nm = (k: string) => byKey.get(k)?.name ?? k;
+    const before = Math.round(current.xi.reduce((t, k) => t + (byKey.get(k)?.xp ?? 0), 0) * 10) / 10;
+    if (body.action === 'reopt_preview') {
+      return {
+        changes: pairs.map((c) => ({ ...c, fromName: nm(c.from), toName: nm(c.to), fromXp: byKey.get(c.from)?.xp, toXp: byKey.get(c.to)?.xp })),
+        captain: captain !== current.captain ? { from: nm(current.captain), to: nm(captain) } : null,
+        vc: vc !== current.vc ? { from: nm(current.vc), to: nm(vc) } : null,
+        before, after: built.totalXp, valid: true,
+        agentCase: pairs.length
+          ? `Agent's case: with ${locks.length} locked and ${excludes.length} excluded, the best valid XI changes ${pairs.length} player${pairs.length > 1 ? 's' : ''} and moves the team from ${before} to ${built.totalXp} xP.`
+          : `No change: your current XI is already the best valid team under those locks and exclusions (${before} xP).`,
+      };
+    }
+    const tag = body.tag === 'reasoned' ? 'reasoned' : 'gut';
+    const reason = body.reason ? String(body.reason).slice(0, 200) : undefined;
+    let decisions = (dec.decisions ?? []) as DecisionEntry[];
+    for (const c of pairs) decisions = mergeEntry(decisions, { kind: 'swap', from: c.from, to: c.to, tag, ...(reason ? { reason } : {}) });
+    if (captain !== current.captain) decisions = mergeEntry(decisions, { kind: 'captain', from: current.captain, to: captain, tag, ...(reason ? { reason } : {}) });
+    if (vc !== current.vc) decisions = mergeEntry(decisions, { kind: 'vice', from: current.vc, to: vc, tag, ...(reason ? { reason } : {}) });
+    must(await sb.from('team_decisions').update({ final: { xi: newXI, captain, vc }, decisions, status: 'draft' }).eq('match_id', id), 'save re-optimised team');
+    return { ok: true, changed: pairs.length };
   }
 
   const change = body.change as Change;

@@ -198,3 +198,79 @@ export async function playbookNudges(sb: SupabaseClient): Promise<{ situation: s
     .map(([situation, count]) => ({ situation, count }))
     .sort((a, b) => b.count - a.count);
 }
+
+// ---------------------------------------------------------------------------------------------
+// Agent vs a plain "mean of the player's last 5 matches" baseline (idea borrowed from Predict-11).
+import { historyFor } from '@/backend/services/history';
+import { bootstrapCI, mean, spearman } from '@/shared/stats';
+
+export interface BaselineResult {
+  n: number;
+  matches: number;
+  maeAgent: number | null;
+  maeBaseline: number | null;
+  diff: number | null; // baseline MAE minus agent MAE: positive = the agent is better
+  ci: [number, number] | null;
+  spearmanAgent: number | null;
+  spearmanBaseline: number | null;
+  verdict: string;
+}
+
+const BASELINE_MIN_N = 20;
+
+export async function baselineComparison(sb: SupabaseClient): Promise<BaselineResult> {
+  const preds = must(await sb.from('predictions').select('match_id,name_key,player_name,team,expected_points'), 'predictions') as any[];
+  const acts = must(await sb.from('actual_points').select('match_id,name_key,points'), 'actuals') as any[];
+  const matches = must(await sb.from('matches').select('id,starts_at,created_at,format'), 'matches') as any[];
+  const actual = new Map(acts.map((a) => [`${a.match_id}|${a.name_key}`, Number(a.points)]));
+  const mm = new Map(matches.map((m) => [m.id, m]));
+
+  const diffs: number[] = []; // |baseline error| - |agent error|, per player
+  const aErr: number[] = [], bErr: number[] = [];
+  const spA: number[] = [], spB: number[] = [];
+  let matchCount = 0;
+
+  const byMatch = new Map<string, any[]>();
+  for (const p of preds) if (actual.has(`${p.match_id}|${p.name_key}`)) byMatch.set(p.match_id, [...(byMatch.get(p.match_id) ?? []), p]);
+
+  for (const [mid, ps] of byMatch) {
+    const m = mm.get(mid);
+    if (!m) continue;
+    const hist = await historyFor(sb, ps.map((p) => ({ key: p.name_key, name: p.player_name, team: p.team })), m.starts_at ?? m.created_at, m.format ?? 'T20', mid);
+    const rows = ps
+      .map((p) => ({ pred: Number(p.expected_points), act: actual.get(`${mid}|${p.name_key}`)!, last5: hist[p.name_key]?.recent?.slice(0, 5) }))
+      .filter((r) => r.last5 && r.last5.length >= 3)
+      .map((r) => ({ ...r, base: mean(r.last5!) }));
+    if (!rows.length) continue;
+    matchCount++;
+    for (const r of rows) {
+      const ea = Math.abs(r.pred - r.act), eb = Math.abs(r.base - r.act);
+      aErr.push(ea); bErr.push(eb); diffs.push(eb - ea);
+    }
+    if (rows.length >= 6) {
+      const sa = spearman(rows.map((r) => r.pred), rows.map((r) => r.act));
+      const sb2 = spearman(rows.map((r) => r.base), rows.map((r) => r.act));
+      if (Number.isFinite(sa) && Number.isFinite(sb2)) { spA.push(sa); spB.push(sb2); }
+    }
+  }
+
+  const n = diffs.length;
+  if (n < BASELINE_MIN_N) {
+    return { n, matches: matchCount, maeAgent: null, maeBaseline: null, diff: null, ci: null, spearmanAgent: null, spearmanBaseline: null, verdict: `Too early to tell. This needs at least ${BASELINE_MIN_N} players with both a result and a last-5 history (you have ${n}).` };
+  }
+  const maeAgent = mean(aErr), maeBaseline = mean(bErr), diff = mean(diffs);
+  const ci = bootstrapCI(diffs);
+  const verdict = ci[0] > 0
+    ? `The agent beats a plain last-5 average by ${diff.toFixed(1)} points per player (95% range ${ci[0].toFixed(1)} to ${ci[1].toFixed(1)}).`
+    : ci[1] < 0
+      ? `A plain last-5 average is closer than the agent by ${Math.abs(diff).toFixed(1)} points per player (95% range ${ci[0].toFixed(1)} to ${ci[1].toFixed(1)}). Treat the agent's numbers with caution.`
+      : `No clear difference from a plain last-5 average yet (${diff >= 0 ? '+' : ''}${diff.toFixed(1)} points per player, 95% range ${ci[0].toFixed(1)} to ${ci[1].toFixed(1)}).`;
+  return {
+    n, matches: matchCount,
+    maeAgent: Math.round(maeAgent * 10) / 10, maeBaseline: Math.round(maeBaseline * 10) / 10,
+    diff: Math.round(diff * 10) / 10, ci: [Math.round(ci[0] * 10) / 10, Math.round(ci[1] * 10) / 10],
+    spearmanAgent: spA.length ? Math.round(mean(spA) * 100) / 100 : null,
+    spearmanBaseline: spB.length ? Math.round(mean(spB) * 100) / 100 : null,
+    verdict,
+  };
+}

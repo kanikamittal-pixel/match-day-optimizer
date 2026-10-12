@@ -4,7 +4,7 @@ import { findGeneric } from '@/shared/reasons';
 import { HttpError } from '@/backend/http';
 import type { Candidate, ContestType, PitchType } from '@/shared/types';
 import { loadPlaybook } from '@/backend/db/queries';
-import { describeStats } from '@/backend/services/playerstats';
+import type { PlayerHistory } from '@/shared/form';
 import { situationKey } from '@/backend/db/queries';
 
 const PITCH: PitchType[] = ['batting_friendly', 'pace_friendly', 'spin_friendly', 'slow_low', 'balanced'];
@@ -76,6 +76,21 @@ export interface PredictionRow {
   batting_position: number | null;
   expected_points: number;
   reason: string;
+  /** Code-computed base (50% overall + 50% recent fantasy average), null when no history was found */
+  base: number | null;
+  adjustment: number | null;
+  basis: string | null;
+}
+
+/** Gemini may only nudge the code-computed base for conditions, never replace it. */
+export const maxAdjustment = (base: number) => Math.max(10, 0.4 * base);
+
+function historyText(h?: PlayerHistory): string {
+  if (!h || h.base === undefined) return `NO RELIABLE HISTORY (${h?.note ?? 'none found'}): give your own expected_points; leave adjustment null`;
+  const bits: string[] = [];
+  if (h.n_all) bits.push(`overall T20 fantasy avg ${h.mean_all} over ${h.n_all} matches`);
+  if (h.n_recent) bits.push(`last ${h.n_recent} matches: ${h.recent!.join(', ')} (avg ${h.mean_recent})`);
+  return `BASE ${h.base} [${h.basis}; ${bits.join('; ')}]: do NOT change it; return only an adjustment, leave expected_points null`;
 }
 
 export async function predictExpectedPoints(
@@ -86,17 +101,17 @@ export async function predictExpectedPoints(
     weights: Record<string, number>;
     weightsVersion: number;
     stageLabel: string;
-    stats?: Record<string, any>;
-    form?: Record<string, any>;
+    history?: Record<string, PlayerHistory>;
   },
 ): Promise<PredictionRow[]> {
-  const { match, pool, weights } = args;
+  const { match, pool, weights, history = {} } = args;
   const playbook = await loadPlaybook(sb);
   const patterns = await errorPatternsFor(sb, match.venue, match.context?.pitch_type ?? null);
   const ctx = match.context ?? {};
-  const roster = pool.map((p) => `${p.name} | ${p.team} | ${p.role} | ${p.credit > 0 ? `${p.credit}cr` : 'credit n/a'} | ${describeStats(args.stats?.[p.key], args.form?.[p.key])}`).join('\n');
+  const roster = pool.map((p) => `${p.name} | ${p.team} | ${p.role} | ${p.credit > 0 ? `${p.credit}cr` : 'credit n/a'} | ${historyText(history[p.key])}`).join('\n');
+  const nullableNum = { type: 'NUMBER', nullable: true };
   const schema = S.obj({
-    players: S.arr(S.obj({ name: S.str, batting_position: S.int, expected_points: S.num, reason: S.str })),
+    players: S.arr(S.obj({ name: S.str, batting_position: S.int, adjustment: nullableNum, expected_points: nullableNum, reason: S.str })),
   });
 
   const base = `MATCH: ${match.team_a} vs ${match.team_b}, ${match.format ?? 'T20'}, venue ${match.venue ?? 'unknown'}. ${args.stageLabel}
@@ -104,11 +119,13 @@ CONDITIONS (from live search): pitch ${ctx.pitch_report ?? 'unknown'}; surface $
 APPROVED SCORING WEIGHTS v${args.weightsVersion} (points per event; adj_* are situational multipliers, 1 = neutral): ${JSON.stringify(weights)}
 ARYAN'S PLAYBOOK RULES (apply them; where owner is aryan his judgement overrides yours): ${playbook.length ? playbook.map((r) => `[${r.owner}] ${r.situation}: ${r.rule}`).join(' | ') : 'none'}
 PAST PREDICTION-ERROR PATTERNS (correct for these): ${patterns}
-PLAYERS (name | team | Dream11 role | credits | statistics: OVERALL career figures and RECENT form):
+PLAYERS (name | team | Dream11 role | credits | history):
 ${roster}
 
-For EVERY player above return: name (exactly as given), batting_position (1-11 expected batting slot, 0 if unlikely to bat), expected_points (your estimate of Dream11 fantasy points for this match, one decimal), reason.
-REASON RULES: one sentence, max 25 words, must cite something specific to THIS match: venue record, record vs this opposition, the pitch, batting position or conditions (e.g. "Opens on a slow surface here where first-innings par is 158"). Give OVERALL career figures and RECENT form EQUAL weight when both exist (RECENT counts only when it covers at least 3 matches). RECENT is fantasy points from this app's own records, so refer to it as recent fantasy returns. If a player has no recent history, never claim recent form or a streak. Never write generic reasons like "in good form", "key player", "consistent performer", "reliable option".`;
+How the numbers work. For a player with a BASE, the base is already the code-computed expectation (equal 50/50 weight of the player's overall and recent Dream11 fantasy average). You must NOT recompute or replace it. Return only "adjustment": points to add or subtract for THIS match (venue and pitch fit, weather and dew, opposition, expected batting position, role in this XI, team news). It can be negative, and should stay within about +/-40% of the base. Set expected_points to null.
+For a player with NO RELIABLE HISTORY, return your own "expected_points" (one decimal) and set adjustment to null.
+For EVERY player return: name (exactly as given), batting_position (1-11 expected batting slot, 0 if unlikely to bat), adjustment, expected_points, reason.
+REASON RULES: one sentence, max 25 words, must cite something specific to THIS match: venue record, record vs this opposition, the pitch, batting position or conditions (e.g. "Opens on a slow surface here where first-innings par is 158"). Only mention form or averages that appear in the history column. Never write generic reasons like "in good form", "key player", "consistent performer", "reliable option".`;
 
   let feedback = '';
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -118,19 +135,35 @@ REASON RULES: one sentence, max 25 words, must cite something specific to THIS m
       schema,
       temperature: 0.3,
     });
-    const out = parseJson<{ players: { name: string; batting_position: number; expected_points: number; reason: string }[] }>(text);
+    const out = parseJson<{ players: { name: string; batting_position: number; adjustment: number | null; expected_points: number | null; reason: string }[] }>(text);
     const byName = new Map(out.players.map((p) => [p.name.toLowerCase().trim(), p]));
     const rows: PredictionRow[] = [];
     const missing: string[] = [];
     for (const c of pool) {
       const p = byName.get(c.name.toLowerCase().trim());
-      if (!p || !Number.isFinite(p.expected_points)) missing.push(c.name);
-      else rows.push({ key: c.key, name: c.name, batting_position: p.batting_position > 0 ? p.batting_position : null, expected_points: Math.round(p.expected_points * 10) / 10, reason: p.reason.trim() });
+      const h = history[c.key];
+      const hasBase = h?.base !== undefined;
+      const adj = p?.adjustment;
+      const own = p?.expected_points;
+      if (!p || (hasBase ? typeof adj !== 'number' || !Number.isFinite(adj) : typeof own !== 'number' || !Number.isFinite(own))) {
+        missing.push(c.name);
+        continue;
+      }
+      let xp: number;
+      let adjUsed: number | null = null;
+      if (hasBase) {
+        const cap = maxAdjustment(h.base!);
+        adjUsed = Math.round(Math.max(-cap, Math.min(cap, adj as number)) * 10) / 10;
+        xp = Math.max(0, Math.round((h.base! + adjUsed) * 10) / 10);
+      } else {
+        xp = Math.max(0, Math.round((own as number) * 10) / 10);
+      }
+      rows.push({ key: c.key, name: c.name, batting_position: p.batting_position > 0 ? p.batting_position : null, expected_points: xp, reason: p.reason.trim(), base: hasBase ? h.base! : null, adjustment: adjUsed, basis: hasBase ? h.basis ?? null : null });
     }
     const generic = findGeneric(rows.map((r) => ({ name: r.name, reason: r.reason })), { venue: match.venue, teams: [match.team_a, match.team_b] });
     if (!missing.length && !generic.length) return rows;
     console.warn(`[predict] attempt ${attempt + 1} rejected. missing=${JSON.stringify(missing)} generic=${JSON.stringify(rows.filter((r) => generic.includes(r.name)).map((r) => `${r.name}: ${r.reason}`).slice(0, 4))}`);
-    feedback = `\n\nYOUR PREVIOUS ANSWER WAS REJECTED. ${missing.length ? `Missing players: ${missing.join(', ')}. ` : ''}${generic.length ? `Generic or non-specific reasons for: ${generic.join(', ')}. Rewrite them citing venue, opposition, pitch, batting position or conditions.` : ''} Return ALL players again.`;
+    feedback = `\n\nYOUR PREVIOUS ANSWER WAS REJECTED. ${missing.length ? `Missing or wrong fields for: ${missing.join(', ')} (players with a BASE need a numeric adjustment; players without need a numeric expected_points). ` : ''}${generic.length ? `Generic or non-specific reasons for: ${generic.join(', ')}. Rewrite them citing venue, opposition, pitch, batting position or conditions.` : ''} Return ALL players again.`;
   }
   throw new HttpError(502, 'Gemini kept returning generic or incomplete predictions. Try again in a moment.');
 }
