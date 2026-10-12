@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/frontend/api';
 import { Banner, Spinner, useToast } from '@/frontend/components/ui';
 import { ROLES } from '@/shared/types';
+import { DREAM11 } from '@/shared/dream11';
 
 export default function Settings() {
   const [rules, setRules] = useState<any>(null);
@@ -33,10 +34,17 @@ export default function Settings() {
       <h1>Settings</h1>
       <h2>Dream11 rules</h2>
       <div className="card stack">
-        <div className="row"><div className="grow"><label className="f">Credit cap</label><input type="number" value={rules.credit_cap} onChange={(e) => setNum('credit_cap', e.target.value)} /></div><div className="grow"><label className="f">Team size</label><input type="number" value={rules.team_size} onChange={(e) => setNum('team_size', e.target.value)} /></div><div className="grow"><label className="f">Max from one team</label><input type="number" value={rules.max_per_team} onChange={(e) => setNum('max_per_team', e.target.value)} /></div></div>
-        <p className="sub" style={{ margin: 0 }}>Max from one team is the most players the XI may take from a single real team. Lower it to force a more balanced XI; the team builder and the checks both use this number.</p>
-        <div className="row"><div className="grow"><label className="f">Captain ×</label><input type="number" step="0.5" value={rules.captain_mult} onChange={(e) => setNum('captain_mult', e.target.value)} /></div><div className="grow"><label className="f">Vice-captain ×</label><input type="number" step="0.5" value={rules.vc_mult} onChange={(e) => setNum('vc_mult', e.target.value)} /></div></div>
-        <table className="t"><thead><tr><th>Role</th><th>Min</th><th>Max</th></tr></thead><tbody>{ROLES.map((r) => (<tr key={r}><td><b>{r}</b></td><td><input type="number" value={rules.role_min[r]} onChange={(e) => setRole('role_min', r, e.target.value)} /></td><td><input type="number" value={rules.role_max[r]} onChange={(e) => setRole('role_max', r, e.target.value)} /></td></tr>))}</tbody></table>
+        <p className="sub" style={{ margin: 0 }}>These are Dream11's team rules. You can make them stricter, but not looser, so every team the app builds can be submitted on Dream11.</p>
+        <div className="row">
+          <div className="grow"><label className="f">Players in the team</label><div className="fixed">{DREAM11.teamSize} <span className="sub">fixed by Dream11</span></div></div>
+          <div className="grow"><label className="f">Credit cap</label><input type="number" min={DREAM11.creditCap.min} max={DREAM11.creditCap.max} value={rules.credit_cap} onChange={(e) => setNum('credit_cap', e.target.value)} /><div className="sub">{DREAM11.creditCap.min} to {DREAM11.creditCap.max}</div></div>
+          <div className="grow"><label className="f">Max from one team</label><input type="number" min={DREAM11.maxPerTeam.min} max={DREAM11.maxPerTeam.max} value={rules.max_per_team} onChange={(e) => setNum('max_per_team', e.target.value)} /><div className="sub">{DREAM11.maxPerTeam.min} to {DREAM11.maxPerTeam.max}</div></div>
+        </div>
+        <div className="row">
+          <div className="grow"><label className="f">Captain points</label><div className="fixed">{DREAM11.captainMult}× <span className="sub">fixed</span></div></div>
+          <div className="grow"><label className="f">Vice-captain points</label><div className="fixed">{DREAM11.vcMult}× <span className="sub">fixed</span></div></div>
+        </div>
+        <table className="t"><thead><tr><th>Role</th><th>Min</th><th>Max</th><th className="sub">Dream11 allows</th></tr></thead><tbody>{ROLES.map((r) => (<tr key={r}><td><b>{r}</b></td><td><input type="number" min={DREAM11.roles[r].min} max={DREAM11.roles[r].max} value={rules.role_min[r]} onChange={(e) => setRole('role_min', r, e.target.value)} /></td><td><input type="number" min={DREAM11.roles[r].min} max={DREAM11.roles[r].max} value={rules.role_max[r]} onChange={(e) => setRole('role_max', r, e.target.value)} /></td><td className="sub">{DREAM11.roles[r].min} to {DREAM11.roles[r].max}</td></tr>))}</tbody></table>
         <button className="btn primary block" onClick={() => call(() => api('/api/settings/rules', { method: 'PUT', json: rules }), 'Rules saved')}>Save rules</button>
       </div>
 

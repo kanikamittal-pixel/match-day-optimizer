@@ -376,3 +376,6 @@ details.cond summary::-webkit-details-marker { display: none; }
 .ov-dt { position: relative; height: 14px; background: var(--card2); border-radius: 7px; overflow: hidden; }
 .ov-zero { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: var(--mute); z-index: 1; }
 .ov-db { position: absolute; top: 0; bottom: 0; } .ov-db.pos { background: color-mix(in srgb, var(--good) 55%, transparent); } .ov-db.neg { background: color-mix(in srgb, var(--red) 55%, transparent); } .ov-db.ad { background: var(--good); }
+
+.fixed { background: var(--card2); border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; min-height: 42px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.fixed .sub { font-weight: 500; }
