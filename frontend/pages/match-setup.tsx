@@ -35,10 +35,6 @@ export default function MatchSetup() {
   const canFetchToss = !id.startsWith('manual-') && !id.startsWith('rb-');
   const stage = hasTeam ? 3 : squadReady ? 2 : 1;
 
-  async function setContest(c: 'small' | 'grand') {
-    setD({ ...d, match: { ...m, contest_type: c } });
-    await api(`/api/matches/${id}`, { method: 'PATCH', json: { contest_type: c } });
-  }
   async function fetchContext(force = false) {
     setCtxBusy(true);
     try { await api(`/api/matches/${id}/context${force ? '?force=1' : ''}`, { method: 'POST' }); await load(); } catch (e: any) { setErr(e.message); }
@@ -70,13 +66,7 @@ export default function MatchSetup() {
         </Link>
       )}
 
-      <div className="row sb" style={{ margin: '14px 0 6px' }}>
-        <h2 style={{ margin: 0 }}>Squad & playing XI</h2>
-        <div className="seg compact">
-          <button className={m.contest_type === 'small' ? 'on' : ''} onClick={() => setContest('small')}>Small league</button>
-          <button className={m.contest_type === 'grand' ? 'on' : ''} onClick={() => setContest('grand')}>Grand league</button>
-        </div>
-      </div>
+      <h2 style={{ margin: '14px 0 6px' }}>Squad & playing XI</h2>
       <div className="card">
         <SquadEditor key={id} matchId={id} teams={teams} initial={initial} confirmedInitial={!!xi?.confirmed} hasContext={!!ctx} canFetchToss={canFetchToss} hasTeam={hasTeam} />
       </div>

@@ -153,7 +153,6 @@ export default function TeamPage() {
             <div className="d-title">{m.team_a} vs {m.team_b}</div>
             <div className="d-sub">{m.format} · {m.venue ?? 'Venue TBC'} · {pre ? 'PRE-TOSS XI' : 'FINAL XI'}</div>
           </div>
-          <span className="d-chip">{m.contest_type === 'small' ? 'Small league' : 'Grand league'}</span>
         </div>
         <div className="d-bar">
           <div><small>Players</small><b className="num">{view.xi.length}/11</b></div>

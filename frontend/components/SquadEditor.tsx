@@ -26,8 +26,6 @@ export default function SquadEditor({ matchId, teams, initial, confirmedInitial,
   const [err, setErr] = useState('');
   const [note, setNote] = useState<{ kind: 'ok' | 'warn' | ''; text: string; sources?: Source[] } | null>(null);
   const [steps, setSteps] = useState<Step[] | null>(null);
-  const [paste, setPaste] = useState('');
-  const [showPaste, setShowPaste] = useState(false);
   const file = useRef<HTMLInputElement>(null);
 
   const ready = readiness(rows, teams);
@@ -112,19 +110,6 @@ export default function SquadEditor({ matchId, teams, initial, confirmedInitial,
     setBusy('');
   }
 
-  async function applyPaste() {
-    setBusy('Applying the pasted XI…'); setErr('');
-    try {
-      await saveCredits();
-      const r = await api(`/api/matches/${matchId}/xi`, { method: 'PUT', json: xiBody({ pasted: paste }) });
-      const keys = new Set<string>([...r.xi.teamA, ...r.xi.teamB, ...r.xi.impact]);
-      setRows((rs) => rs.map((x) => ({ ...x, inXI: keys.has(nameKey(x.name)) })));
-      setShowPaste(false);
-      setNote({ kind: r.unmatched.length ? 'warn' : 'ok', text: r.unmatched.length ? `Couldn’t match: ${r.unmatched.join(', ')}. Tick them in the list.` : 'Pasted XI applied.' });
-    } catch (e: any) { setErr(e.message); }
-    setBusy('');
-  }
-
   async function build(force = false) {
     setErr('');
     const mark = (n: number): Step[] => STEPS.map((label, i) => ({ label, state: i < n ? 'done' : i === n ? 'doing' : 'todo' }));
@@ -159,7 +144,6 @@ export default function SquadEditor({ matchId, teams, initial, confirmedInitial,
         <button className="btn" onClick={findXI} disabled={!!busy || building}>Check announced XI</button>
         <button className="btn ghost" onClick={() => file.current?.click()} disabled={!!busy || building}>📷 Add credits from a screenshot (optional)</button>
         <button className="btn ghost" onClick={loadKnown} disabled={!!busy || building}>Load squad</button>
-        <button className="btn ghost wide" onClick={() => setShowPaste(!showPaste)}>Paste the XI as text</button>
       </div>
       {busy && <p className="sub"><Spinner /> {busy}</p>}
       {err && <Banner kind="bad">{err}</Banner>}
@@ -168,12 +152,6 @@ export default function SquadEditor({ matchId, teams, initial, confirmedInitial,
           {note.text}
           {note.sources && note.sources.length > 0 && <div className="sub" style={{ marginTop: 4 }}>Sources: {note.sources.slice(0, 4).map((s, i) => (<a key={i} href={s.uri} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline', marginRight: 8 }}>{s.title || 'source'}</a>))}</div>}
         </Banner>
-      )}
-      {showPaste && (
-        <div className="stack" style={{ margin: '10px 0' }}>
-          <textarea rows={6} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={`One name per line (initials are fine).`} />
-          <button className="btn block" disabled={!paste.trim() || !!busy} onClick={applyPaste}>Apply pasted XI</button>
-        </div>
       )}
 
       {rows.length === 0 ? (

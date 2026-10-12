@@ -85,7 +85,7 @@ Insights → **Data check** compares the same players in the same match across t
 ## How a match flows
 
 1. **Home**: today's/upcoming matches from CricketData (cached 30 min), a banner for matches awaiting results, and the day's API hit count.
-2. **Match setup**: choose Small/Grand league → upload 1–3 Dream11 screenshots (downscaled in-browser) → Gemini extracts name/team/role/credit into an editable table. Credits are pre-filled from each player's last match and changed ones are highlighted. Confirmed credits are saved per match. Typing by hand, or "Use last known credits", is the fallback.
+2. **Match setup**: the squads and XI are found automatically (screenshots are optional, for credits only) → upload 1–3 Dream11 screenshots (downscaled in-browser) → Gemini extracts name/team/role/credit into an editable table. Credits are pre-filled from each player's last match and changed ones are highlighted. Confirmed credits are saved per match. Typing by hand, or "Use last known credits", is the fallback.
 3. **XI**: tick the XI, paste names ("V Kohli" works), or fetch the toss from the API. Marked *probable* (pre-toss) or *confirmed*; every downstream screen carries that label.
 4. **Conditions**: Gemini + Google Search returns pitch, surface, weather/dew, late news and venue record, with source links.
 5. **Build**: expected points (Gemini, strict JSON, rejects and retries generic reasons) → best valid XI (plain code, exact search) → C/VC (Gemini, re-checked by code, retried once, falls back to the two top scorers).
