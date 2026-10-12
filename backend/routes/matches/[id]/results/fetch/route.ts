@@ -25,6 +25,7 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   const { id } = await params;
   const { sb } = await requireUser();
   const m = await loadMatch(sb, id);
+  if (m.starts_at && new Date(m.starts_at).getTime() > Date.now()) throw new HttpError(409, 'This match has not started yet, so there is no result to fetch. Come back once it has started.');
   const cid = await scorecardId(sb, id, m);
   if (!cid) throw new HttpError(404, 'No scorecard source found for this match, so results can’t be fetched. Enter the points by hand.', { manual: true });
 

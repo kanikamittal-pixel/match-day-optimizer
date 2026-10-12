@@ -250,7 +250,9 @@ export default function TeamPage() {
           </>
         ) : (
           <>
-            <Link href={`/match/${id}/result${d.hasActuals ? '' : '?fetch=1'}`} className="btn primary block">{d.hasActuals ? 'Edit match results' : 'Fetch match results'}</Link>
+            {m.starts_at && new Date(m.starts_at).getTime() > Date.now()
+              ? <p className="sub" style={{ margin: 0 }}>Results open once the match has started.</p>
+              : <Link href={`/match/${id}/result${d.hasActuals ? '' : '?fetch=1'}`} className="btn primary block">{d.hasActuals ? 'Edit match results' : 'Fetch match results'}</Link>}
             {!d.hasActuals && <button className="btn ghost block" onClick={() => act('reopen')}>Reopen for edits</button>}
           </>
         )}

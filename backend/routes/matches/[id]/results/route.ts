@@ -2,6 +2,14 @@ import { handle, HttpError } from '@/backend/http';
 import { must, requireUser } from '@/backend/integrations/supabase';
 import type { FinalTeam, Recommended } from '@/shared/types';
 
+/** A result can only exist once the match has started. A match with no start time is treated as started. */
+async function startInfo(sb: any, id: string): Promise<{ started: boolean; startsAt: string | null }> {
+  const { data } = await sb.from('matches').select('starts_at').eq('id', id).maybeSingle();
+  const startsAt: string | null = data?.starts_at ?? null;
+  return { started: !startsAt || new Date(startsAt).getTime() <= Date.now(), startsAt };
+}
+const NOT_STARTED = 'This match has not started yet, so there is no result to fetch or enter. Come back once it has started.';
+
 /** The post-match list: final XI plus any recommended player Aryan dropped, so both judgements are scored. */
 export const GET = handle(async (_req: Request, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
@@ -14,6 +22,7 @@ export const GET = handle(async (_req: Request, { params }: { params: Promise<{ 
   const preds = must(await sb.from('predictions').select('name_key,player_name,team,role,expected_points').in('name_key', keys).eq('match_id', id), 'preds') as any[];
   const acts = must(await sb.from('actual_points').select('name_key,points').eq('match_id', id), 'acts') as any[];
   const have = new Map(acts.map((a) => [a.name_key, Number(a.points)]));
+  const { started, startsAt } = await startInfo(sb, id);
   const players = preds.map((p) => ({
     key: p.name_key,
     name: p.player_name,
@@ -24,13 +33,14 @@ export const GET = handle(async (_req: Request, { params }: { params: Promise<{ 
     dropped: !fin.xi.includes(p.name_key),
     points: have.get(p.name_key) ?? null,
   }));
-  return { players: players.sort((a, b) => Number(b.in_final) - Number(a.in_final) || b.xp - a.xp), captain: fin.captain, vc: fin.vc, agentCaptain: rec.captain, agentVc: rec.vc, status: dec.status };
+  return { players: players.sort((a, b) => Number(b.in_final) - Number(a.in_final) || b.xp - a.xp), captain: fin.captain, vc: fin.vc, agentCaptain: rec.captain, agentVc: rec.vc, status: dec.status, started, startsAt };
 });
 
 export const PUT = handle(async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
   const { sb } = await requireUser();
   const { points } = (await req.json()) as { points: { key: string; points: number | null }[] };
+  if (!(await startInfo(sb, id)).started) throw new HttpError(409, NOT_STARTED);
   const { data: dec } = await sb.from('team_decisions').select('recommended,final').eq('match_id', id).maybeSingle();
   if (!dec) throw new HttpError(404, 'No team was built for this match.');
   const fin = dec.final as FinalTeam;
