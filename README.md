@@ -66,13 +66,13 @@ Run them yourself: `npm run backtest -- --logic v2 <cricsheet match id>`, `npm r
 
 Insights → **Data check** compares the same players in the same match across two independent providers (Cricsheet ball-by-ball vs CricketData scorecards): 19 players, average difference 1.3 points, correlation 0.999. It also lists the raw-delivery proof (exact totals), the check of the scoring table against Dream11's own page, and the limits (the second-source comparison covers one match so far because CricketData's free tier is capped at 100 calls a day).
 
-## Proof page
+## Match Report page
 
-**Proof** lists every team the agent recommended, with the time it was made (and every rebuild). Upload a screenshot of the team created in Dream11 and the app reads the players and the C / VC badges and checks them against the recommendation, player by player. Screenshots are stored as evidence.
+**Match Report** is the one-match view for Aryan. He picks a match from a list (teams the agent built live, and the finished matches it was back-tested on) and sees: what the agent picked and when, how those players scored against the real top 11 (the best valid team in hindsight), the key metrics (captain rank, average miss per player vs a plain last-5 average, role mix, batting-order mix), the top-11 players it missed and why (how it ranked them, whether they had history, where they batted), its picks that disappointed, and an expected-vs-actual table for every player. Nothing is uploaded: who played and their points are read from the Cricsheet ball-by-ball record. **Insights** is the all-matches view that feeds back into the model; Match Report is one match at a time.
 
 ## Known limits of the history data
 - Cricsheet publishes a few days late. A daily job tops the gap up from CricketData scorecards (dot balls estimated from runs and balls) and removes those rows once Cricsheet has the match. If CricketData's daily quota is used up, the top-up waits for the next day. 15 of the 100 daily hits are reserved for scorecards (fixture refreshes stop earlier and are cached 2 hours), and matches that could not be added yet are listed under Insights → Data check as "Waiting now" and retried every day. RapidAPI is used for fixtures only; its match endpoints returned empty scoreboards in testing, so it is not a source for finished matches.
-- **Backup.** `npm run backup` writes every Supabase table (including the 200k+ history rows, back-tests, Proof screenshots and recommendation snapshots) as JSON to `backups/<timestamp>/` (gitignored). Restore is an upsert of those rows.
+- **Backup.** `npm run backup` writes every Supabase table (including the 200k+ history rows, back-tests and recommendation snapshots) as JSON to `backups/<timestamp>/` (gitignored). Restore is an upsert of those rows.
 - Cricsheet stores player names as text, not unique ids, so two different players who share the same written name (it happens with short initials) could be merged. The team-roster check makes this unlikely but not impossible; using Cricsheet's identifiers would remove the risk.
 - A side that Cricsheet doesn't cover (for example ACT Women, or Indian state teams outside Syed Mushtaq Ali) has no history, and the app says so.
 
