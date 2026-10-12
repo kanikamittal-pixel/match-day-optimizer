@@ -36,12 +36,15 @@ export default function Dashboard() {
   }, []);
 
   const matches = data?.matches ?? [];
-  const next = useMemo(() => matches.filter((m) => m.phase !== 'completed' && !m.results_in).sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)))[0], [matches]);
-
-  // form data exists for T20s only, so the watch list and the face-off follow the next T20
-  const nextT20 = useMemo(() => matches.filter((m) => m.format === 'T20' && m.phase !== 'completed' && !m.results_in).sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)))[0], [matches]);
-  const nextId = nextT20?.id;
-  useEffect(() => { if (nextId) api(`/api/dashboard/watch?match=${encodeURIComponent(nextId)}`).then(setWatch).catch(() => {}); }, [nextId]);
+  // The match the dashboard is about: the one Aryan picks below, otherwise the soonest T20 (form data exists for T20s only)
+  const [pick, setPick] = useState<string | null>(null);
+  const upcoming = useMemo(() => matches.filter((m) => m.phase !== 'completed' && !m.results_in).sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at))), [matches]);
+  const next = upcoming.find((m) => m.id === pick) ?? upcoming.find((m) => m.format === 'T20') ?? upcoming[0];
+  const nextId = next?.format === 'T20' ? next.id : undefined;
+  useEffect(() => {
+    setWatch(null);
+    if (nextId) api(`/api/dashboard/watch?match=${encodeURIComponent(nextId)}`).then(setWatch).catch(() => {});
+  }, [nextId]);
 
   const shown = useMemo(() => {
     const now = new Date();
@@ -80,7 +83,7 @@ export default function Dashboard() {
 
       <div className="dash">
         <section className="hero">
-          <div className="eyebrow">{next ? (next.phase === 'live' ? 'In progress' : 'Next match') : 'No upcoming match'}</div>
+          <div className="eyebrow">{next ? (next.phase === 'live' ? 'In progress' : pick ? 'Selected match' : 'Next match') : 'No upcoming match'}</div>
           {next ? (
             <>
               <div className="row" style={{ gap: 10, marginTop: 10 }}>
@@ -96,6 +99,16 @@ export default function Dashboard() {
                   : <Link href={`/match/${next.id}`} className="btn primary grow">Build my team →</Link>}
               </div>
               <p className="sub" style={{ margin: '10px 0 0' }}>I find the squads and the XI for you. Check the ticks, tap Build. About a minute.</p>
+              {upcoming.length > 1 && (
+                <div className="switch">
+                  <div className="sub">Switch match (the form averages below follow it)</div>
+                  <div className="chips" style={{ marginTop: 6 }}>
+                    {upcoming.slice(0, 10).map((m) => (
+                      <span key={m.id} className={`chip ${m.id === next.id ? 'on' : ''}`} onClick={() => setPick(m.id)}>{short(m.team_a)} v {short(m.team_b)} · {dayLabel(m.starts_at)} · {m.format}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -125,9 +138,12 @@ export default function Dashboard() {
             ))}
           </section>
         )}
+        {next && next.format !== 'T20' && (
+          <section className="panel watch"><div className="ph"><b>Players to watch</b></div><p className="sub" style={{ margin: 0 }}>Form averages are built from T20 history, so they are not shown for {next.format} matches. Pick a T20 above to see them.</p></section>
+        )}
         {watch && watch.teams.some((t) => t.players.length) && (
           <section className="panel watch">
-            <div className="ph"><b>Players to watch</b><span className="sub">fantasy points per match</span></div>
+            <div className="ph"><b>Players to watch · {next?.team_a} v {next?.team_b}</b><span className="sub">fantasy points per match</span></div>
             <p className="sub wlegend">Each bar is one of the last 10 T20s (newest on the right): <i className="lg g" /> 90+ points, <i className="lg b" /> 40 to 89, <i className="lg m" /> under 40. The big number is their average Dream11 points per match. 🔥 last 3 matches well above that average, ❄️ well below.</p>
             <div className="watch-cols">
               {watch.teams.map((t) => (
