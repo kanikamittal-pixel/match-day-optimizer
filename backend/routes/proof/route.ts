@@ -1,8 +1,8 @@
 import { handle, HttpError } from '@/backend/http';
 import { must, requireUser } from '@/backend/integrations/supabase';
-import { gemini, parseJson, S } from '@/backend/integrations/gemini';
 import { loadAliases } from '@/backend/services/cricsheet-ingest';
-import { matchStrictAliases, pairNames, sameShortName } from '@/shared/names';
+import { matchStrictAliases, teamLookup } from '@/shared/names';
+import { proofResult, type ProofResult } from '@/shared/proofresult';
 
 export const maxDuration = 60;
 
@@ -17,7 +17,8 @@ interface Item {
   recommended: { xi: RecPlayer[]; captain: string; vc: string };
   final?: { xi: RecPlayer[]; captain: string; vc: string } | null; // Aryan's final team when it differs
   note?: string;
-  proof: any | null;
+  result: ProofResult | null;
+  resultNote?: string;
   log: { at: string; stage: string; captain: string; vc: string; xi: string[] }[];
 }
 
@@ -29,7 +30,10 @@ async function buildItems(sb: any): Promise<Item[]> {
   const ids = decisions.map((d) => d.match_id);
   const matches = ids.length ? (must(await sb.from('matches').select('id,name,starts_at,team_a,team_b').in('id', ids), 'matches') as any[]) : [];
   const credits = ids.length ? (must(await sb.from('match_credits').select('match_id,name_key,name,team,role').in('match_id', ids), 'credits') as any[]) : [];
-  const { data: cache } = await sb.from('api_cache').select('key,payload,fetched_at').or('key.like.proof:*,key.like.rec:*,key.like.bt:%');
+  const aliases = await loadAliases(sb);
+  const viaAlias = (r: string, c: string) => matchStrictAliases(r, [c], aliases) === c;
+  const { data: actualRows } = ids.length ? await sb.from('actual_points').select('match_id,player_name,points').in('match_id', ids) : { data: [] as any[] };
+  const { data: cache } = await sb.from('api_cache').select('key,payload,fetched_at').or('key.like.rec:*,key.like.bt:%');
   const rows = (cache ?? []) as { key: string; payload: any; fetched_at: string }[];
 
   for (const d of decisions) {
@@ -38,13 +42,31 @@ async function buildItems(sb: any): Promise<Item[]> {
     const by = new Map(credits.filter((c) => c.match_id === d.match_id).map((c) => [c.name_key, c]));
     const pl = (k: string): RecPlayer => ({ name: by.get(k)?.name ?? k, role: by.get(k)?.role ?? '', team: by.get(k)?.team ?? '' });
     const rec = d.recommended, fin = d.final;
+    const recXI = rec.xi.map(pl);
+    let result: ProofResult | null = null;
+    let resultNote: string | undefined;
+    const mine = (actualRows ?? []).filter((a: any) => a.match_id === d.match_id);
+    if (mine.length) {
+      result = proofResult(mine.map((a: any) => ({ name: a.player_name, team: '', points: Number(a.points) })), recXI, pl(rec.captain).name, pl(rec.vc).name, 'Result entered or fetched for this match', viaAlias);
+    } else if (m.starts_at && new Date(m.starts_at).getTime() < Date.now()) {
+      // The match has been played: read who actually played from the ball-by-ball history, with no input from anyone
+      const day = new Date(m.starts_at).getTime();
+      const from = new Date(day - 36 * 3600e3).toISOString().slice(0, 10), to = new Date(day + 36 * 3600e3).toISOString().slice(0, 10);
+      const names = [...teamLookup(m.team_a).names, ...teamLookup(m.team_b).names];
+      const { data: pmp } = await sb.from('player_match_points').select('match_ref,team,player,points,opponent').in('team', names).gte('played_on', from).lte('played_on', to);
+      const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const refs = new Set((pmp ?? []).filter((r: any) => teamLookup(m.team_a).names.some((n) => norm(n) === norm(r.team)) || teamLookup(m.team_b).names.some((n) => norm(n) === norm(r.team))).map((r: any) => r.match_ref));
+      const one = [...refs].find((ref) => (pmp ?? []).filter((r: any) => r.match_ref === ref).length >= 20);
+      if (one) result = proofResult((pmp ?? []).filter((r: any) => r.match_ref === one).map((r: any) => ({ name: r.player, team: r.team, points: Number(r.points) })), recXI, pl(rec.captain).name, pl(rec.vc).name, 'Cricsheet ball-by-ball record of the match', viaAlias);
+      else resultNote = 'The match has been played, but the ball-by-ball record is not published yet (it arrives a few days after the match). The comparison appears here on its own.';
+    } else resultNote = 'The match has not been played yet. When it has, the players who actually played and their points appear here on their own.';
     const changed = JSON.stringify([...fin.xi].sort()) !== JSON.stringify([...rec.xi].sort()) || fin.captain !== rec.captain || fin.vc !== rec.vc;
     items.push({
       key: `m:${d.match_id}`, kind: 'live', title: m.name, date: m.starts_at, recommendedAt: d.created_at, stage: d.stage,
       recommended: { xi: rec.xi.map(pl), captain: pl(rec.captain).name, vc: pl(rec.vc).name },
       final: changed ? { xi: fin.xi.map(pl), captain: pl(fin.captain).name, vc: pl(fin.vc).name } : null,
       note: changed ? `Aryan changed ${(d.decisions ?? []).length} thing(s) after the recommendation.` : 'Aryan kept the recommendation as it was.',
-      proof: rows.find((r) => r.key === `proof:m:${d.match_id}`)?.payload ?? null,
+      result, resultNote,
       log: rows.filter((r) => r.key.startsWith(`rec:${d.match_id}:`)).map((r) => r.payload).sort((a, b) => String(b.at).localeCompare(String(a.at))),
     });
   }
@@ -59,7 +81,7 @@ async function buildItems(sb: any): Promise<Item[]> {
       key: `bt:${r.ref}`, kind: 'backtest', title: `${r.title} (already played)`, date: r.date, recommendedAt: r.createdAt,
       recommended: { xi: r.agent.xi.map(pl), captain: r.agent.captain, vc: r.agent.vc },
       note: `Built before reading the result, using only earlier matches. It scored ${r.metrics.agent} points against a best possible ${r.metrics.hindsight}.`,
-      proof: rows.find((x) => x.key === `proof:bt:${r.ref}`)?.payload ?? null, log: [],
+      result: proofResult(r.players.map((p: any) => ({ name: p.name, team: p.team, points: Number(p.actual) })), r.agent.xi.map(pl), r.agent.captain, r.agent.vc, 'Cricsheet ball-by-ball record of the match'), log: [],
     });
   }
   items.sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')));
@@ -69,51 +91,4 @@ async function buildItems(sb: any): Promise<Item[]> {
 export const GET = handle(async () => {
   const { sb } = await requireUser();
   return { items: await buildItems(sb) };
-});
-
-/** Read a Dream11 team screenshot and check it against what was recommended. Stores the screenshot as evidence. */
-export const POST = handle(async (req: Request) => {
-  const { sb } = await requireUser();
-  const { key, images, which } = (await req.json()) as { key: string; images: { mime: string; data: string }[]; which?: 'recommended' | 'final' };
-  if (!key || !images?.length || images.length > 3) throw new HttpError(400, 'Send 1 to 3 screenshots.');
-  if (images.some((i) => i.data.length > 700_000)) throw new HttpError(413, 'A screenshot is too large. Try again; the page shrinks images before uploading.');
-
-  const list = await buildItems(sb);
-  const item = list.find((i) => i.key === key);
-  if (!item) throw new HttpError(404, 'Unknown match.');
-  const target = which === 'final' && item.final ? item.final : item.recommended;
-
-  const schema = S.obj({
-    players: S.arr(S.obj({ name: S.str })),
-    captain: { type: 'STRING', nullable: true },
-    vice_captain: { type: 'STRING', nullable: true },
-  });
-  const { text } = await gemini({
-    schema, temperature: 0, images,
-    prompt: `These are screenshots of a Dream11 fantasy cricket team (the preview, the captain screen or "My Teams"). List the 11 selected players exactly as their names are shown, and the names of the player with the C (captain) badge and the VC (vice-captain) badge if they are visible. If a badge is not visible, return null for it. Do not invent anything that is not on screen.`,
-  });
-  const read = parseJson<{ players: { name: string }[]; captain: string | null; vice_captain: string | null }>(text);
-  const aliases = await loadAliases(sb);
-  const roster = target.xi.map((p) => p.name);
-  // Pair each name on the screenshot with a different recommended player (tolerant of truncation and "(WK)" suffixes;
-  // full Cricsheet names for back-tests are handled through the alias list)
-  const viaAlias = (r: string, c: string) => matchStrictAliases(r, [c], aliases) === c;
-  const pairing = pairNames(read.players.map((p) => p.name), roster, viaAlias);
-  const matched = new Set(pairing.paired.map((x) => x.rec));
-  const unmatched = pairing.unmatchedRead;
-  const missing = pairing.missing;
-  const same = (readName: string | null, rec: string) => (readName ? sameShortName(readName, rec) || viaAlias(readName, rec) : false);
-  const capRead = read.captain && same(read.captain, target.captain) ? target.captain : null;
-  const vcRead = read.vice_captain && same(read.vice_captain, target.vc) ? target.vc : null;
-  const result = {
-    checkedAt: new Date().toISOString(), against: which === 'final' ? 'final' : 'recommended',
-    read: read.players.length, matched: matched.size, total: roster.length, missing, unmatched,
-    captain: { read: read.captain, ok: read.captain ? capRead !== null : null },
-    vc: { read: read.vice_captain, ok: read.vice_captain ? vcRead !== null : null },
-    exact: matched.size === roster.length && read.players.length === roster.length,
-  };
-  const prev = (await sb.from('api_cache').select('payload').eq('key', `proof:${key}`).maybeSingle()).data?.payload;
-  const stored = { images: [...(prev?.images ?? []), ...images.map((i) => `data:${i.mime};base64,${i.data}`)].slice(-3), results: [result, ...(prev?.results ?? [])].slice(0, 6) };
-  must(await sb.from('api_cache').upsert({ key: `proof:${key}`, payload: stored, fetched_at: new Date().toISOString(), ttl_seconds: 3650 * 86400 }), 'save proof');
-  return { result, proof: stored };
 });

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/frontend/api';
 import { Banner, short } from '@/frontend/components/ui';
 import Sparkline from '@/frontend/components/Sparkline';
+import FaceOff, { heat } from '@/frontend/components/FaceOff';
 import { countdown, dayLabel } from '@/shared/when';
 
 interface M { id: string; name: string; team_a: string; team_b: string; venue: string | null; format: string; starts_at: string | null; status: string | null; phase: 'completed' | 'live' | 'upcoming'; has_team: boolean; team_status: string | null; results_in: boolean }
@@ -92,7 +93,7 @@ export default function Dashboard() {
                   ? <><Link href={`/match/${next.id}/team`} className="btn primary grow">Open my team</Link><Link href={`/match/${next.id}`} className="btn">Rebuild</Link></>
                   : <Link href={`/match/${next.id}`} className="btn primary grow">Build my team →</Link>}
               </div>
-              <p className="sub" style={{ margin: '10px 0 0' }}>Upload your Dream11 screenshot, check the XI, tap Build. About two minutes.</p>
+              <p className="sub" style={{ margin: '10px 0 0' }}>I find the squads and the XI for you. Check the ticks, tap Build. About a minute.</p>
             </>
           ) : (
             <>
@@ -132,7 +133,7 @@ export default function Dashboard() {
                   {t.players.length === 0 && <p className="sub" style={{ margin: '6px 0 0' }}>No T20 history on record for this side.</p>}
                   {t.players.map((p) => (
                     <div key={p.player} className="wrow">
-                      <div className="grow"><div className="wname">{p.player}</div><div className="sub">{p.n} T20s in the last year</div></div>
+                      <div className="grow"><div className="wname">{p.player}{heat(p) === 'hot' && <span title="Last 3 scores well above his 10-match average"> 🔥</span>}{heat(p) === 'cold' && <span title="Last 3 scores well below his 10-match average"> ❄️</span>}</div><div className="sub">{p.n} T20s in the last year</div></div>
                       <Sparkline values={p.recent} />
                       <div className="wmean num">{p.mean}</div>
                     </div>
@@ -142,11 +143,12 @@ export default function Dashboard() {
             </div>
           </section>
         )}
+        {watch && watch.teams.some((t) => t.players.length) && <FaceOff teams={watch.teams} />}
         <section className="panel how">
           <div className="ph"><b>How it works</b><span className="sub">about 2 minutes</span></div>
           <div className="steps3">
-            <div><span>1</span><b>Upload</b><p>Screenshot your Dream11 player list. I read every player and the probable XI.</p></div>
-            <div><span>2</span><b>Check</b><p>Tick or untick the XI in one table. Find the announced XI when it is out.</p></div>
+            <div><span>1</span><b>Find</b><p>I search for both squads and the announced or most likely XI. Nothing to upload.</p></div>
+            <div><span>2</span><b>Check</b><p>Tick or untick the XI in one table. Check again after the toss for the official XI.</p></div>
             <div><span>3</span><b>Build</b><p>One tap: pitch, history and a valid XI with captain, ready to copy into Dream11.</p></div>
           </div>
         </section>

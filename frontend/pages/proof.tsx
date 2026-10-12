@@ -1,7 +1,7 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
-import { api, imageToPayload } from '@/frontend/api';
-import { Banner, Spinner, short } from '@/frontend/components/ui';
+import { useEffect, useState } from 'react';
+import { api } from '@/frontend/api';
+import { Banner } from '@/frontend/components/ui';
 
 const ROLES = ['WK', 'BAT', 'AR', 'BOWL'];
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -25,41 +25,42 @@ function TeamList({ team, label }: { team: { xi: { name: string; role: string; t
   );
 }
 
-function Verdict({ r }: { r: any }) {
-  const good = r.exact && r.captain.ok !== false && r.vc.ok !== false;
+function Outcome({ item }: { item: any }) {
+  const r = item.result;
+  if (!r) return <div className="banner" style={{ marginTop: 10 }}>{item.resultNote}</div>;
+  const played = r.picks.filter((p: any) => p.played).length;
   return (
-    <div className={`banner ${good ? 'ok' : 'warn'}`} style={{ marginTop: 8 }}>
-      <b>{r.matched} of {r.total} players match</b> the {r.against} team
-      {r.captain.read ? <> · captain {r.captain.ok ? '✓' : `✗ (screenshot shows ${r.captain.read})`}</> : ' · captain badge not visible'}
-      {r.vc.read ? <> · vice-captain {r.vc.ok ? '✓' : `✗ (screenshot shows ${r.vc.read})`}</> : ' · vice-captain badge not visible'}
-      {r.missing.length > 0 && <div className="sub">Not on your screenshot: {r.missing.join(', ')}</div>}
-      {r.unmatched.length > 0 && <div className="sub">On your screenshot but not recommended: {r.unmatched.join(', ')}</div>}
-      <div className="sub">Checked {when(r.checkedAt)}</div>
+    <div className="pf-result">
+      <div className="pf-label">What actually happened</div>
+      <div className="pf-score">
+        <div><b className="num">{r.total}</b><span>points from this team</span></div>
+        {r.bestPossible !== null && <div><b className="num">{r.bestPossible}</b><span>best possible team</span></div>}
+        <div><b className="num">{played}/{r.picks.length}</b><span>picks actually played</span></div>
+      </div>
+      <table className="t">
+        <tbody>
+          {r.picks.map((p: any) => (
+            <tr key={p.name} className={p.played ? '' : 'pf-out'}>
+              <td>{p.name}{p.badge === 'C' && <b className="badge-c">C</b>}{p.badge === 'VC' && <b className="badge-vc">VC</b>}<div className="sub">{p.role} · {p.team}</div></td>
+              <td style={{ textAlign: 'right' }}>{p.played ? <><b className="num">{p.points}</b>{p.badge && <div className="sub">counted {p.counted}</div>}</> : <span className="pill warn">did not play</span>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <details style={{ marginTop: 8 }}>
+        <summary className="sub" style={{ cursor: 'pointer' }}>Everyone who played ({r.playedCount} players, best first)</summary>
+        <table className="t"><tbody>
+          {r.everyone.map((p: any) => (
+            <tr key={p.name + p.team} className={p.picked ? 'pf-picked' : ''}><td>{p.picked ? '✓ ' : ''}{p.name}<span className="sub">{p.team ? ` · ${p.team}` : ''}</span></td><td style={{ textAlign: 'right' }} className="num">{p.points}</td></tr>
+          ))}
+        </tbody></table>
+      </details>
+      <div className="sub" style={{ marginTop: 6 }}>Source: {r.source}. Points use the Dream11 T20 scoring table; the captain counts 2x and the vice-captain 1.5x.</div>
     </div>
   );
 }
 
-function Card({ item, reload }: { item: any; reload: () => void }) {
-  const file = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-  const [which, setWhich] = useState<'recommended' | 'final'>('recommended');
-  const results = item.proof?.results ?? [];
-
-  async function upload(files: FileList | null) {
-    if (!files?.length) return;
-    setBusy(true); setErr('');
-    try {
-      const images = await Promise.all([...files].slice(0, 3).map(async (f) => {
-        return imageToPayload(f, 1100, 0.72); // small enough to store as evidence and to upload three at once
-      }));
-      await api('/api/proof', { method: 'POST', json: { key: item.key, images, which } });
-      reload();
-    } catch (e: any) { setErr(e.message); }
-    setBusy(false);
-    if (file.current) file.current.value = '';
-  }
-
+function Card({ item }: { item: any }) {
   return (
     <div className="card pf-card">
       <div className="row sb" style={{ alignItems: 'flex-start' }}>
@@ -78,24 +79,7 @@ function Card({ item, reload }: { item: any; reload: () => void }) {
           {item.log.map((l: any) => <div key={l.at} className="sub" style={{ marginTop: 4 }}>{when(l.at)} · {l.stage === 'pre_toss' ? 'pre-toss' : 'final XI'} · C {l.captain} · VC {l.vc}</div>)}
         </details>
       )}
-
-      <div className="pf-upload">
-        <b>Show that this team was created</b>
-        <p className="sub" style={{ margin: '2px 0 8px' }}>Optional: upload a screenshot (up to 3) of the team in Dream11. I read the players and the C and VC badges and check them against the recommendation above.</p>
-        {item.final && (
-          <div className="seg compact" style={{ marginBottom: 8 }}>
-            <button className={which === 'recommended' ? 'on' : ''} onClick={() => setWhich('recommended')}>Check against the agent's team</button>
-            <button className={which === 'final' ? 'on' : ''} onClick={() => setWhich('final')}>Check against Aryan's final</button>
-          </div>
-        )}
-        <input ref={file} type="file" accept="image/*" multiple hidden onChange={(e) => upload(e.target.files)} />
-        <button className="btn primary" disabled={busy} onClick={() => file.current?.click()}>{busy ? <><Spinner /> Reading…</> : '📷 Add a Dream11 screenshot (optional)'}</button>
-        {err && <Banner kind="bad">{err}</Banner>}
-        {results[0] && <Verdict r={results[0]} />}
-        {item.proof?.images?.length > 0 && (
-          <div className="pf-shots">{item.proof.images.map((src: string, i: number) => <a key={i} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`Team screenshot ${i + 1}`} /></a>)}</div>
-        )}
-      </div>
+      <Outcome item={item} />
     </div>
   );
 }
@@ -112,13 +96,13 @@ export default function Proof() {
   return (
     <>
       <h1>Proof of recommendations</h1>
-      <p className="sub">Every team the agent recommended is stored with the time it was made. Nothing needs uploading: each team below was built before the match, stored with its time, and for finished matches it is scored against the real result. A screenshot is optional and only shows that the team was also created in Dream11 itself; the app checks it player by player.</p>
+      <p className="sub">Every team the agent recommended is stored with the time it was made. Below each team is what actually happened: the players who really played in the match and the points they scored, read by the app itself from the ball-by-ball record. Nobody uploads anything.</p>
       <h2>Live matches</h2>
       {live.length === 0 && <p className="sub">No live recommendation yet. Build a team for a match and it appears here.</p>}
-      {live.map((i) => <Card key={i.key} item={i} reload={load} />)}
+      {live.map((i) => <Card key={i.key} item={i} />)}
       <h2>Matches already played</h2>
       <p className="sub" style={{ marginTop: 0 }}>For finished matches the team was built before the result was read (see Insights, Back-tests).</p>
-      {bt.map((i) => <Card key={i.key} item={i} reload={load} />)}
+      {bt.map((i) => <Card key={i.key} item={i} />)}
     </>
   );
 }
