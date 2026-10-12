@@ -4,6 +4,7 @@ import { findGeneric } from '@/shared/reasons';
 import { HttpError } from '@/backend/http';
 import type { Candidate, ContestType, PitchType } from '@/shared/types';
 import { loadPlaybook } from '@/backend/db/queries';
+import { describeStats } from '@/backend/services/playerstats';
 import { situationKey } from '@/backend/db/queries';
 
 const PITCH: PitchType[] = ['batting_friendly', 'pace_friendly', 'spin_friendly', 'slow_low', 'balanced'];
@@ -85,13 +86,14 @@ export async function predictExpectedPoints(
     weights: Record<string, number>;
     weightsVersion: number;
     stageLabel: string;
+    stats?: Record<string, any>;
   },
 ): Promise<PredictionRow[]> {
   const { match, pool, weights } = args;
   const playbook = await loadPlaybook(sb);
   const patterns = await errorPatternsFor(sb, match.venue, match.context?.pitch_type ?? null);
   const ctx = match.context ?? {};
-  const roster = pool.map((p) => `${p.name} | ${p.team} | ${p.role} | ${p.credit > 0 ? `${p.credit}cr` : 'credit n/a'}`).join('\n');
+  const roster = pool.map((p) => `${p.name} | ${p.team} | ${p.role} | ${p.credit > 0 ? `${p.credit}cr` : 'credit n/a'} | ${describeStats(args.stats?.[p.key])}`).join('\n');
   const schema = S.obj({
     players: S.arr(S.obj({ name: S.str, batting_position: S.int, expected_points: S.num, reason: S.str })),
   });
@@ -101,11 +103,11 @@ CONDITIONS (from live search): pitch ${ctx.pitch_report ?? 'unknown'}; surface $
 APPROVED SCORING WEIGHTS v${args.weightsVersion} (points per event; adj_* are situational multipliers, 1 = neutral): ${JSON.stringify(weights)}
 ARYAN'S PLAYBOOK RULES (apply them; where owner is aryan his judgement overrides yours): ${playbook.length ? playbook.map((r) => `[${r.owner}] ${r.situation}: ${r.rule}`).join(' | ') : 'none'}
 PAST PREDICTION-ERROR PATTERNS (correct for these): ${patterns}
-PLAYERS (name | team | Dream11 role | credits):
+PLAYERS (name | team | Dream11 role | credits | statistics from a web search):
 ${roster}
 
 For EVERY player above return: name (exactly as given), batting_position (1-11 expected batting slot, 0 if unlikely to bat), expected_points (your estimate of Dream11 fantasy points for this match, one decimal), reason.
-REASON RULES: one sentence, max 25 words, must cite something specific to THIS match: venue record, record vs this opposition, the pitch, batting position or conditions (e.g. "Opens on a slow surface here where first-innings par is 158"). Never write generic reasons like "in good form", "key player", "consistent performer", "reliable option".`;
+REASON RULES: one sentence, max 25 words, must cite something specific to THIS match: venue record, record vs this opposition, the pitch, batting position or conditions (e.g. "Opens on a slow surface here where first-innings par is 158"). Base each estimate on the OVERALL career figures given plus the conditions. Recent form is NOT available for any player, so never claim recent form or a streak. Never write generic reasons like "in good form", "key player", "consistent performer", "reliable option".`;
 
   let feedback = '';
   for (let attempt = 0; attempt < 3; attempt++) {

@@ -9,7 +9,8 @@ export const GET = handle(async (_req: Request, { params }: { params: Promise<{ 
   const { data: decision } = await sb.from('team_decisions').select('*').eq('match_id', id).maybeSingle();
   const predictions = must(await sb.from('predictions').select('*').eq('match_id', id), 'predictions');
   const actuals = must(await sb.from('actual_points').select('*').eq('match_id', id), 'actuals');
-  return { match, credits, rules, weightsVersion: weights.version, decision, predictions, hasActuals: actuals.length > 0 };
+  const { data: st } = await sb.from('api_cache').select('payload').eq('key', `stats:${id}`).maybeSingle();
+  return { match, credits, rules, weightsVersion: weights.version, decision, predictions, hasActuals: actuals.length > 0, stats: st?.payload?.players ?? {} };
 });
 
 export const PATCH = handle(async (req: Request, { params }: { params: Promise<{ id: string }> }) => {

@@ -31,7 +31,9 @@ export default function TeamPage() {
     const cred = new Map<string, any>(d.credits.map((c: any) => [c.name_key, c]));
     const fin = d.decision.final;
     const rec = d.decision.recommended;
-    const mk = (k: string) => ({ key: k, name: cred.get(k)?.name ?? preds.get(k)?.player_name ?? k, team: cred.get(k)?.team ?? '', role: cred.get(k)?.role ?? preds.get(k)?.role, credit: Number(cred.get(k)?.credit ?? NaN), xp: Number(preds.get(k)?.expected_points ?? 0), reason: preds.get(k)?.reason ?? '' });
+    const stats: Record<string, any> = d.stats ?? {};
+    const line = (st: any) => (st?.found ? `${String(st.scope).split(' ')[0]} career: ${st.matches} m · ${st.runs} runs${st.batting_avg ? ` · avg ${st.batting_avg}` : ''}${st.strike_rate ? ` · SR ${st.strike_rate}` : ''}${st.wickets ? ` · ${st.wickets} wkts${st.economy ? ` · eco ${st.economy}` : ''}` : ''}` : null);
+    const mk = (k: string) => ({ key: k, career: line(stats[k]), name: cred.get(k)?.name ?? preds.get(k)?.player_name ?? k, team: cred.get(k)?.team ?? '', role: cred.get(k)?.role ?? preds.get(k)?.role, credit: Number(cred.get(k)?.credit ?? NaN), xp: Number(preds.get(k)?.expected_points ?? 0), reason: preds.get(k)?.reason ?? '' });
     const xi = fin.xi.map(mk);
     const eligible = new Set<string>([...(d.match.xi?.teamA ?? []), ...(d.match.xi?.teamB ?? []), ...(d.match.xi?.impact ?? [])]);
     const benchAll = [...eligible].filter((k) => !fin.xi.includes(k) && preds.has(k)).map(mk).sort((a, b) => b.xp - a.xp);
@@ -141,6 +143,7 @@ export default function TeamPage() {
                   </div>
                   <div className="xp num">{p.xp}<small>{cr(p.credit)}</small></div>
                   <div className="r">{p.reason}</div>
+                  <div className="r" style={{ color: 'var(--mute)', fontSize: 12 }}>{p.career ?? 'Career stats: not found'} · Last 10: not available</div>
                 </div>
               ))}
             </div>

@@ -11,7 +11,8 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   const { sb } = await requireUser();
   const { match, pool, stage } = await preflight(sb, id);
   const { version, weights } = await loadActiveWeights(sb);
-  const rows = await predictExpectedPoints(sb, { match, pool, weights, weightsVersion: version, stageLabel: stageLabel(stage) });
+  const { data: st } = await sb.from('api_cache').select('payload').eq('key', `stats:${id}`).maybeSingle();
+  const rows = await predictExpectedPoints(sb, { match, pool, weights, weightsVersion: version, stageLabel: stageLabel(stage), stats: st?.payload?.players });
   const byKey = new Map(pool.map((p) => [p.key, p]));
   must(await sb.from('predictions').delete().eq('match_id', id), 'clear predictions');
   must(
