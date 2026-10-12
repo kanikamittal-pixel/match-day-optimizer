@@ -31,7 +31,7 @@ export const GET = handle(async (req: Request) => {
   for (const team of [m.team_a, m.team_b]) {
     const rows: { player: string; played_on: string; points: number }[] = [];
     for (let from = 0; from < 6000; from += 1000) {
-      const { data, error } = await sb.from('player_match_points').select('player,played_on,points').in('team', teamLookup(team).names).eq('gender', teamLookup(team).gender).gte('played_on', since).lt('played_on', cutoff).order('played_on', { ascending: false }).range(from, from + 999);
+      const { data, error } = await sb.from('player_match_points').select('player,played_on,points').in('team', teamLookup(team).names).eq('gender', teamLookup(team).gender).gte('played_on', since).lt('played_on', cutoff).order('played_on', { ascending: false }).order('match_ref').order('team').order('name_key').range(from, from + 999);
       if (error) return { teams: [], note: 'Fantasy history is not set up yet.' };
       rows.push(...(data ?? []));
       if (!data || data.length < 1000) break;

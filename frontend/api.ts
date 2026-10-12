@@ -25,14 +25,14 @@ export async function api<T = any>(url: string, init?: RequestInit & { json?: un
 }
 
 /** Downscale a screenshot to <= 1600px JPEG so 3 images fit Vercel's 4.5MB body limit. */
-export async function imageToPayload(file: File): Promise<{ mime: string; data: string }> {
+export async function imageToPayload(file: File, maxPx = 1600, quality = 0.82): Promise<{ mime: string; data: string }> {
   const bmp = await createImageBitmap(file);
-  const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+  const scale = Math.min(1, maxPx / Math.max(bmp.width, bmp.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bmp.width * scale);
   canvas.height = Math.round(bmp.height * scale);
   canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-  const url = canvas.toDataURL('image/jpeg', 0.82);
+  const url = canvas.toDataURL('image/jpeg', quality);
   return { mime: 'image/jpeg', data: url.split(',')[1] };
 }
 

@@ -40,7 +40,7 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
     const k = matchName(name, known);
     return k ? roleByKey.get(k) : undefined;
   };
-  const scored = pointsFromScorecard(d.scorecard, roleOf);
+  const scored = pointsFromScorecard(d.scorecard, roleOf, { estimateDots: true });
   const points: Record<string, number> = {};
   const unmatched: string[] = [];
   for (const s of scored) {

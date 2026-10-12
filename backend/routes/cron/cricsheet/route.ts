@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { handle, HttpError } from '@/backend/http';
 import { buildAliases, ingestZip, saveAliases } from '@/backend/services/cricsheet-ingest';
+import { topUpFromCricketData } from '@/backend/services/cd-topup';
 
 /**
  * Daily refresh of the fantasy history: pulls Cricsheet's small "recently added (7 days)" file and the
@@ -23,5 +24,7 @@ export const GET = handle(async (req: Request) => {
   let aliases = 0;
   const names = await fetch('https://cricsheet.org/register/names.csv', { cache: 'no-store' });
   if (names.ok) aliases = await saveAliases(sb, buildAliases(await names.text(), stats.idByName));
-  return { matches: stats.matches, rows: stats.rows, skipped: stats.skips, aliasesKnown: aliases };
+  // Cricsheet is a few days behind: fill the gap from CricketData scorecards (and drop any that Cricsheet now has)
+  const topUp = await topUpFromCricketData(sb);
+  return { matches: stats.matches, rows: stats.rows, skipped: stats.skips, aliasesKnown: aliases, topUp };
 });

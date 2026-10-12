@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { blendBase, MIN_ALL, summariseForm, type FormRow, type PlayerHistory } from '@/shared/form';
+import { blendBase, blendBaseLegacy, ewmMean, MIN_ALL, summariseForm, type FormRow, type PlayerHistory } from '@/shared/form';
 import { dropSharedLinks, matchStrictAliases, teamLookup } from '@/shared/names';
 import { loadAliases } from '@/backend/services/cricsheet-ingest';
 
@@ -28,6 +28,7 @@ export async function historyFor(
   cutoff: string,
   format: string,
   matchId?: string,
+  opts: { legacy?: boolean } = {},
 ): Promise<Record<string, PlayerHistory>> {
   const out: Record<string, PlayerHistory> = {};
   const none = (note: string): PlayerHistory => ({ found: false, source: 'none', note });
@@ -42,7 +43,7 @@ export async function historyFor(
   const rosters = new Map<string, string[]>();
   let tableOk = true;
   for (const team of new Set(players.map((p) => p.team))) {
-    const rows = await pageAll<{ player: string }>((a, b) => sb.from('player_match_points').select('player').in('team', teamLookup(team).names).eq('gender', teamLookup(team).gender).gte('played_on', since).lt('played_on', day).range(a, b));
+    const rows = await pageAll<{ player: string }>((a, b) => sb.from('player_match_points').select('player').in('team', teamLookup(team).names).eq('gender', teamLookup(team).gender).gte('played_on', since).lt('played_on', day).order('played_on', { ascending: false }).order('match_ref').order('team').order('name_key').range(a, b));
     if (rows === null) { tableOk = false; break; }
     rosters.set(team, [...new Set(rows.map((r) => r.player))]);
   }
@@ -66,7 +67,7 @@ export async function historyFor(
   if (names.length) {
     for (let i = 0; i < names.length; i += 30) {
       const chunk = names.slice(i, i + 30);
-      const rows = await pageAll<{ player: string; played_on: string; points: number }>((a, b) => sb.from('player_match_points').select('player,played_on,points').in('player', chunk).lt('played_on', day).order('played_on', { ascending: false }).range(a, b));
+      const rows = await pageAll<{ player: string; played_on: string; points: number }>((a, b) => sb.from('player_match_points').select('player,played_on,points').in('player', chunk).lt('played_on', day).order('played_on', { ascending: false }).order('match_ref').order('team').order('name_key').range(a, b));
       for (const r of rows ?? []) byName.set(r.player, [...(byName.get(r.player) ?? []), { when: r.played_on, points: Number(r.points) }]);
     }
   }
@@ -90,17 +91,19 @@ export async function historyFor(
     const rows = full ? byName.get(full) ?? [] : [];
     if (full && rows.length) {
       const recent = rows.slice(0, 10).map((r) => r.points);
+      const window = rows.slice(0, 20).map((r) => r.points); // recent half of the base: recency-weighted over the last 20
       const h: PlayerHistory = {
         found: true, source: 'cricsheet', cs_name: full,
         n_all: rows.length, mean_all: r1(rows.reduce((s, r) => s + r.points, 0) / rows.length),
-        n_recent: recent.length, recent, mean_recent: r1(recent.reduce((s, x) => s + x, 0) / recent.length),
+        n_recent: window.length, recent, mean_last10: r1(recent.reduce((s, x) => s + x, 0) / recent.length), mean_recent: r1(ewmMean(window)),
       };
-      const b = blendBase(h);
+      if (opts.legacy) { h.n_recent = recent.length; h.mean_recent = h.mean_last10; } // version 1: a flat last-10 average
+      const b = (opts.legacy ? blendBaseLegacy : blendBase)(h);
       if (b) { h.base = b.base; h.basis = b.basis; }
       out[p.key] = h;
     } else if (appForm[p.key]?.n) {
       const f = appForm[p.key];
-      const h: PlayerHistory = { found: true, source: 'app', n_recent: f.n, recent: f.points, mean_recent: f.avg, note: 'From your saved results only' };
+      const h: PlayerHistory = { found: true, source: 'app', n_recent: f.n, recent: f.points, mean_last10: f.avg, mean_recent: r1(ewmMean(f.points)), note: 'From your saved results only' };
       const b = blendBase(h);
       if (b) { h.base = b.base; h.basis = b.basis; }
       out[p.key] = h;

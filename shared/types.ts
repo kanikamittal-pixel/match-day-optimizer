@@ -39,7 +39,7 @@ export interface Recommended {
   bench: { key: string; reason: string }[];
   total_xp: number;
   credits: number;
-  cvc_source: 'gemini' | 'fallback';
+  cvc_source: 'gemini' | 'guarded' | 'fallback';
   credit_mode?: 'applied' | 'ignored';
 }
 

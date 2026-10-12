@@ -2,8 +2,12 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/frontend/api';
 import { Banner, Spinner, useToast } from '@/frontend/components/ui';
+import Backtests from '@/frontend/components/Backtests';
+import Rubric from '@/frontend/components/Rubric';
+import DataCheck from '@/frontend/components/DataCheck';
+import StyleCard from '@/frontend/components/StyleCard';
 
-export default function Insights() {
+function YourResults() {
   const [d, setD] = useState<any>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -36,7 +40,6 @@ export default function Insights() {
 
   return (
     <>
-      <h1>Insights</h1>
       <p className="sub">{d.matchesScored} match{d.matchesScored === 1 ? '' : 'es'} scored · {d.playersScored} player predictions checked</p>
 
       {d.matchesScored === 0 && <Banner>Nothing to learn from yet. Enter results after your first match and this fills in.</Banner>}
@@ -115,6 +118,24 @@ export default function Insights() {
         </div>
       )) : <p className="sub">Nothing waiting. Nothing changes without your approval.</p>}
       {toast}
+    </>
+  );
+}
+
+
+export default function Insights() {
+  const tabs = [['back', 'Back-tests'], ['rubric', 'How it decides'], ['data', 'Data check'], ['you', 'You vs agent']] as const;
+  const [tab, setTab] = useState<(typeof tabs)[number][0]>('back');
+  return (
+    <>
+      <h1>Insights</h1>
+      <div className="seg tabs4" style={{ marginTop: 10 }}>
+        {tabs.map(([k, label]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{label}</button>)}
+      </div>
+      {tab === 'back' && <Backtests />}
+      {tab === 'rubric' && <Rubric />}
+      {tab === 'data' && <DataCheck />}
+      {tab === 'you' && (<><StyleCard /><YourResults /></>)}
     </>
   );
 }

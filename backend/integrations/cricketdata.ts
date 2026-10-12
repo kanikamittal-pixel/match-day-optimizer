@@ -55,7 +55,16 @@ export async function cricket<T = any>(
   } catch {
     return serveStale('CricketData is unreachable. Enter this data manually.');
   }
-  if (json?.status && json.status !== 'success') return serveStale(`CricketData: ${json.reason ?? json.status}`);
+  // Trust the usage CricketData itself reports: other tools and scripts share this key, so our own counter can under-count.
+  const reported = Number(json?.info?.hitsToday);
+  if (Number.isFinite(reported) && reported > hits + 1) {
+    const day = new Date().toISOString().slice(0, 10);
+    await sb.from('api_usage').upsert({ day, hits: reported });
+  }
+  if (json?.status && json.status !== 'success') {
+    if (/exceed/i.test(String(json.reason ?? ''))) await sb.from('api_usage').upsert({ day: new Date().toISOString().slice(0, 10), hits: limit() });
+    return serveStale(`CricketData: ${json.reason ?? json.status}`);
+  }
   await sb.from('api_cache').upsert({ key, payload: json, fetched_at: new Date().toISOString(), ttl_seconds: ttl });
   return { data: json as T, fromCache: false, stale: false };
 }

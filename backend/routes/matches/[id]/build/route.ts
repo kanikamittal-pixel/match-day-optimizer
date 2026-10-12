@@ -56,5 +56,14 @@ export const POST = handle(async (req: Request, { params }: { params: Promise<{ 
     }),
     'save recommendation',
   );
+  // Keep a timestamped copy of every recommendation (rebuilds overwrite the live row), so the Proof page can show what was
+  // recommended and when, even after Aryan changes the team.
+  const nameOf = new Map(pool.map((p) => [p.key, p.name]));
+  const at = new Date().toISOString();
+  await sb.from('api_cache').upsert({
+    key: `rec:${id}:${Date.now()}`,
+    payload: { at, stage, xi: recommended.xi.map((k) => nameOf.get(k) ?? k), captain: nameOf.get(recommended.captain) ?? recommended.captain, vc: nameOf.get(recommended.vc) ?? recommended.vc },
+    fetched_at: at, ttl_seconds: 3650 * 86400,
+  });
   return { stage, recommended };
 });

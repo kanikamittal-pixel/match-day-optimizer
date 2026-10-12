@@ -89,7 +89,7 @@ function historyText(h?: PlayerHistory): string {
   if (!h || h.base === undefined) return `NO RELIABLE HISTORY (${h?.note ?? 'none found'}): give your own expected_points; leave adjustment null`;
   const bits: string[] = [];
   if (h.n_all) bits.push(`overall T20 fantasy avg ${h.mean_all} over ${h.n_all} matches`);
-  if (h.n_recent) bits.push(`last ${h.n_recent} matches: ${h.recent!.join(', ')} (avg ${h.mean_recent})`);
+  if (h.n_recent) bits.push(`last ${h.recent!.length} matches: ${h.recent!.join(', ')} (recency-weighted recent average ${h.mean_recent})`);
   return `BASE ${h.base} [${h.basis}; ${bits.join('; ')}]: do NOT change it; return only an adjustment, leave expected_points null`;
 }
 
@@ -102,6 +102,7 @@ export async function predictExpectedPoints(
     weightsVersion: number;
     stageLabel: string;
     history?: Record<string, PlayerHistory>;
+    temperature?: number;
   },
 ): Promise<PredictionRow[]> {
   const { match, pool, weights, history = {} } = args;
@@ -122,7 +123,7 @@ PAST PREDICTION-ERROR PATTERNS (correct for these): ${patterns}
 PLAYERS (name | team | Dream11 role | credits | history):
 ${roster}
 
-How the numbers work. For a player with a BASE, the base is already the code-computed expectation (equal 50/50 weight of the player's overall and recent Dream11 fantasy average). You must NOT recompute or replace it. Return only "adjustment": points to add or subtract for THIS match (venue and pitch fit, weather and dew, opposition, expected batting position, role in this XI, team news). It can be negative, and should stay within about +/-40% of the base. Set expected_points to null.
+How the numbers work. For a player with a BASE, the base is already the code-computed expectation (equal 50/50 weight of the player's overall and recency-weighted recent Dream11 fantasy average; for players with very few matches, their own average mixed with the typical new-player score). You must NOT recompute or replace it. Return only "adjustment": points to add or subtract for THIS match (venue and pitch fit, weather and dew, opposition, expected batting position, role in this XI, team news). It can be negative, and should stay within about +/-40% of the base. Set expected_points to null.
 For a player with NO RELIABLE HISTORY, return your own "expected_points" (one decimal) and set adjustment to null.
 For EVERY player return: name (exactly as given), batting_position (1-11 expected batting slot, 0 if unlikely to bat), adjustment, expected_points, reason.
 REASON RULES: one sentence, max 25 words, must cite something specific to THIS match: venue record, record vs this opposition, the pitch, batting position or conditions (e.g. "Opens on a slow surface here where first-innings par is 158"). Only mention form or averages that appear in the history column. Never write generic reasons like "in good form", "key player", "consistent performer", "reliable option".`;
@@ -137,7 +138,7 @@ REASON RULES: one sentence, max 25 words, must cite something specific to THIS m
       system: 'You are a sharp fantasy cricket analyst. Respond with strict JSON only.',
       prompt: base.replace(roster, rosterNow) + feedback,
       schema,
-      temperature: 0.3,
+      temperature: args.temperature ?? 0.3,
     });
     const out = parseJson<{ players: { name: string; batting_position: number; adjustment: number | null; expected_points: number | null; reason: string }[] }>(text);
     const byName = new Map(out.players.map((p) => [p.name.toLowerCase().trim(), p]));
@@ -185,7 +186,7 @@ export interface CVC {
   vc: string;
   reason: string;
   bench: { key: string; reason: string }[];
-  source: 'gemini' | 'fallback';
+  source: 'gemini' | 'guarded' | 'fallback';
 }
 
 export async function pickCaptains(args: {
@@ -193,6 +194,8 @@ export async function pickCaptains(args: {
   xi: Candidate[];
   bench: Candidate[];
   reasons: Map<string, string>;
+  guard?: boolean; // captain safety net (version 2 logic); default on
+  temperature?: number;
 }): Promise<CVC> {
   const { match, xi, bench, reasons } = args;
   const line = (p: Candidate) => `${p.name} | ${p.team} | ${p.role} | xP ${p.xp} | ${reasons.get(p.key) ?? ''}`;
@@ -214,7 +217,7 @@ Also give one-line reasons for up to 4 notable players left on the bench (why th
   const byName = new Map(xi.map((p) => [p.name.toLowerCase().trim(), p]));
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const { text } = await gemini({ system: 'Respond with strict JSON only.', prompt, schema, temperature: 0.3 });
+      const { text } = await gemini({ system: 'Respond with strict JSON only.', prompt, schema, temperature: args.temperature ?? 0.3 });
       const j = parseJson<{ captain: string; vice_captain: string; reason: string; bench_calls: { name: string; reason: string }[] }>(text);
       const c = byName.get(j.captain?.toLowerCase().trim());
       const v = byName.get(j.vice_captain?.toLowerCase().trim());
@@ -224,7 +227,14 @@ Also give one-line reasons for up to 4 notable players left on the bench (why th
           .map((b) => ({ p: benchByName.get(b.name.toLowerCase().trim()), reason: b.reason }))
           .filter((b) => b.p)
           .map((b) => ({ key: b.p!.key, reason: b.reason }));
-        return { captain: c.key, vc: v.key, reason: j.reason, bench: benchCalls, source: 'gemini' };
+        // Safety net from a back-test of 1,236 matches: the player our estimate ranks #1 scores ~79 on average, #4 ~63, so a
+        // captain outside the top 3 (or a vice-captain outside the top 4) costs real points. Gemini keeps the choice inside that band.
+        const rankIn = (key: string) => 1 + [...xi].sort((a, b) => b.xp - a.xp).findIndex((p) => p.key === key);
+        if (args.guard === false || (rankIn(c.key) <= 3 && rankIn(v.key) <= 4)) return { captain: c.key, vc: v.key, reason: j.reason, bench: benchCalls, source: 'gemini' };
+        const ranked = [...xi].sort((a, b) => b.xp - a.xp);
+        const cap = rankIn(c.key) <= 3 ? c : ranked[0];
+        const vice = rankIn(v.key) <= 4 && v.key !== cap.key ? v : ranked.find((p) => p.key !== cap.key)!;
+        return { captain: cap.key, vc: vice.key, reason: `${j.reason} (Adjusted by code: captain must be among the top 3 by expected points and vice-captain among the top 4, because lower-ranked picks scored noticeably less in a test of 1,236 past matches.)`, bench: benchCalls, source: 'guarded' };
       }
     } catch (e) {
       if (attempt === 1) console.error('C/VC Gemini failed', e);

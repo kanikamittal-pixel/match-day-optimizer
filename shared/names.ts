@@ -98,3 +98,42 @@ export function teamLookup(team: string): { names: string[]; gender: 'male' | 'f
   const base = team.replace(/\s+(women('s)?|w)\s*$/i, '').trim();
   return { names: [...new Set([team, base])], gender: women ? 'female' : 'male' };
 }
+
+/**
+ * Are two written names plausibly the same player? Built for comparing Dream11 short names with each other
+ * ("K Mendis" vs "K Mendis (WK)", "M Theekshan..." vs "M Theeks"): same first initial, and one surname is the other
+ * or a prefix of it (so truncated names still match). A "(WK)"-style suffix is ignored.
+ */
+export function sameShortName(a: string, b: string): boolean {
+  const clean = (x: string) => tokens(x.replace(/(…|\.\.\.)/g, ' '));
+  const ta = clean(a), tb = clean(b);
+  if (!ta.length || !tb.length) return false;
+  const sa = ta[ta.length - 1], sb = tb[tb.length - 1];
+  const surnameOk = sa === sb || (Math.min(sa.length, sb.length) >= 4 && (sa.startsWith(sb) || sb.startsWith(sa)));
+  const ia = ta.length > 1 ? ta[0][0] : '', ib = tb.length > 1 ? tb[0][0] : '';
+  return surnameOk && (!ia || !ib || ia === ib);
+}
+
+/**
+ * Pair every name read from a screenshot with a different recommended name (each used at most once, so two
+ * "K Mendis" are paired with two different players). Returns the pairing and what is left over on each side.
+ */
+export function pairNames(read: string[], recommended: string[], extra?: (r: string, rec: string) => boolean): { paired: { read: string; rec: string }[]; unmatchedRead: string[]; missing: string[] } {
+  const used = new Set<string>(); // recommended entries already taken
+  const taken = new Array<string | null>(read.length).fill(null); // by position, so duplicate names pair separately
+  const test = (r: string, c: string) => sameShortName(r, c) || (extra ? extra(r, c) : false);
+  const exact = (r: string, c: string) => r.toLowerCase().replace(/[^a-z]/g, '') === c.toLowerCase().replace(/[^a-z]/g, '');
+  const pass = (ok: (r: string, c: string) => boolean) => {
+    read.forEach((r, i) => {
+      if (taken[i] !== null) return;
+      const c = recommended.find((x) => !used.has(x) && ok(r, x));
+      if (c) { taken[i] = c; used.add(c); }
+    });
+  };
+  pass(exact); pass(test);
+  return {
+    paired: read.flatMap((r, i) => (taken[i] === null ? [] : [{ read: r, rec: taken[i] as string }])),
+    unmatchedRead: read.filter((_, i) => taken[i] === null),
+    missing: recommended.filter((c) => !used.has(c)),
+  };
+}

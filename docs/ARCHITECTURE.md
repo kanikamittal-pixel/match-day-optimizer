@@ -36,6 +36,8 @@ One Next.js project, split into clearly separated layers. Each tool in the stack
 | **CricketData.org** | Fixtures, toss, squads | `backend/integrations/cricketdata.ts` (cache + 95/day budget) |
 | **RapidAPI: Free Cricbuzz Cricket API** | Upcoming fixtures (second source, deduped against CricketData) | `backend/integrations/rapidapi.ts` (cache + 90/month budget) |
 | **Cricsheet** (open ball-by-ball data) | Fantasy history per player: overall and last 10 matches | `backend/scripts/ingest-cricsheet.ts` (import), `backend/services/cricsheet.ts` (parser), `backend/services/history.ts` (lookup), `backend/services/cricsheet-ingest.ts` (shared import + aliases), `backend/routes/cron/cricsheet/` (daily refresh), `shared/scoring.ts` (Dream11 points) |
+| **Back-tests and audits** | Prove the logic on finished matches, find where it breaks, test fixes | `backend/services/backtest.ts`, `shared/backtest.ts`, `backend/scripts/backtest*.ts`, `backend/scripts/audit-form.ts`, `backend/routes/insights/backtests/` |
+| **Proof page** | Timestamped recommendations plus screenshot verification | `backend/routes/proof/`, `frontend/pages/proof.tsx` |
 | **Supabase** (Postgres + Auth) | All data storage and login | `backend/integrations/supabase.ts`, `backend/db/`, `supabase/migrations/` (schema) |
 | **Vercel** | Hosting | `next.config.mjs`, env vars in the Vercel dashboard |
 | **Vitest** | Tests of the rules engine | `tests/`, `vitest.config.ts` |

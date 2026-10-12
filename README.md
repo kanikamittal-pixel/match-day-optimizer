@@ -39,7 +39,39 @@ Push to GitHub, import in Vercel, add the same variables, deploy. Routes that ca
 
 Ideas in this section were borrowed from two public repos, RK0297/DREAM11-TEAM-PREDICTOR (created 4 May 2025, last updated 4 Aug 2025, so it predates the August 2025 change) and Janu-Chaudhary/Predict-11 (created 1 Dec 2025; its scoring research was rewritten on 1 Oct 2026). No code was copied (neither has a licence file); the logic was re-implemented.
 
+## How a player is chosen (the rubric)
+
+| Step | Weight / rule | Source |
+|---|---|---|
+| Career average | **50%** of the base (players with 5+ earlier T20s) | Cricsheet ball-by-ball, scored with Dream11's T20 table, since 2018 |
+| Recent form | **50%** of the base: recency-weighted average of the last 20 matches (each counts half as much as the one 5 newer) | same |
+| 1-4 earlier matches | (n × own average + 2 × typical score) / (n + 2); typical 37.2 (1-2), 40.7 (3-4) | measured on ~2,500 cases |
+| No history found | Gemini's own estimate, listed on the team card | Gemini |
+| Match conditions | Gemini adds or subtracts points, capped at max(10, 40% of the base): pitch/venue record, weather and dew, opposition, batting position, role, team news, playbook rules, past errors | Gemini + Google Search |
+| Which 11 | Exact search for the valid team with the highest total expected points: 11 players, WK 1-4, BAT 3-6, AR 1-4, BOWL 3-6, max 7 per team, 100 credits when known | Code, no AI |
+| Captain / vice-captain | 2× / 1.5×. Gemini picks; code keeps the captain in the top 3 by expected points and the VC in the top 4 | Gemini, checked by code |
+| Final say | Aryan. Every override is tagged gut or reasoned; the agent argues once and never blocks | Aryan |
+
+The same tables, with the live values, are on **Insights → How it decides**.
+
+## Back-tests: what was tested and what changed
+
+Insights → **Back-tests** builds a team for matches that already finished, using only information available before each one (history cut off before the match day, no web search, the real XI), then reads the actual points and runs an automatic post-mortem: biggest wrong picks, stars left out, captain finish, whether Gemini's adjustment helped, players with no history, bias by role and batting position. Finished matches tested: India v West Indies (6 Oct 2026), India v Pakistan (3 Oct), Bangladesh v Pakistan (1 Oct).
+
+Any idea for a fix is then tested on ~1,236 past matches with no AI (`npm run backtest:formulas`), with a 95% confidence range and a split into two halves of the year. Result: three changes adopted (recency-weighted recent form, a steadier base for players with 1-4 matches, a captain safety net) and six ideas rejected with evidence (medians, shrinkage for experienced players, dropping half of the blend, floor/ceiling captains, and others). The log of every finding is on the page. Honest headline: single-match fantasy scores are mostly luck, and the history-based method captures about 76% of the best possible top-11 on average.
+
+Run them yourself: `npm run backtest -- --logic v2 <cricsheet match id>`, `npm run backtest:formulas`, `npm run audit:form`.
+
+## Is the recent-form data correct?
+
+Insights → **Data check** compares the same players in the same match across two independent providers (Cricsheet ball-by-ball vs CricketData scorecards): 19 players, average difference 1.3 points, correlation 0.999. It also lists the raw-delivery proof (exact totals), the check of the scoring table against Dream11's own page, and the limits (the second-source comparison covers one match so far because CricketData's free tier is capped at 100 calls a day).
+
+## Proof page
+
+**Proof** lists every team the agent recommended, with the time it was made (and every rebuild). Upload a screenshot of the team created in Dream11 and the app reads the players and the C / VC badges and checks them against the recommendation, player by player. Screenshots are stored as evidence.
+
 ## Known limits of the history data
+- Cricsheet publishes a few days late. A daily job tops the gap up from CricketData scorecards (dot balls estimated from runs and balls) and removes those rows once Cricsheet has the match. If CricketData's daily quota is used up, the top-up waits for the next day.
 - Cricsheet stores player names as text, not unique ids, so two different players who share the same written name (it happens with short initials) could be merged. The team-roster check makes this unlikely but not impossible; using Cricsheet's identifiers would remove the risk.
 - A side that Cricsheet doesn't cover (for example ACT Women, or Indian state teams outside Syed Mushtaq Ali) has no history, and the app says so.
 
