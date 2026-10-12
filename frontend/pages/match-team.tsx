@@ -6,6 +6,7 @@ import { api } from '@/frontend/api';
 import { Banner, Sheet, Spinner, short, useToast } from '@/frontend/components/ui';
 import { ROLES } from '@/shared/types';
 import { creditsUsed, validateTeam } from '@/shared/rules';
+import { formLine } from '@/shared/form';
 
 type Pending = { change: { kind: 'swap' | 'captain' | 'vice'; from: string; to: string }; preview: any } | null;
 const WHY = ['Venue record', 'Pitch', 'Matchup', 'Team news', 'Balance'];
@@ -33,7 +34,7 @@ export default function TeamPage() {
     const rec = d.decision.recommended;
     const stats: Record<string, any> = d.stats ?? {};
     const line = (st: any) => (st?.found ? `${String(st.scope).split(' ')[0]} career: ${st.matches} m · ${st.runs} runs${st.batting_avg ? ` · avg ${st.batting_avg}` : ''}${st.strike_rate ? ` · SR ${st.strike_rate}` : ''}${st.wickets ? ` · ${st.wickets} wkts${st.economy ? ` · eco ${st.economy}` : ''}` : ''}` : null);
-    const mk = (k: string) => ({ key: k, career: line(stats[k]), name: cred.get(k)?.name ?? preds.get(k)?.player_name ?? k, team: cred.get(k)?.team ?? '', role: cred.get(k)?.role ?? preds.get(k)?.role, credit: Number(cred.get(k)?.credit ?? NaN), xp: Number(preds.get(k)?.expected_points ?? 0), reason: preds.get(k)?.reason ?? '' });
+    const mk = (k: string) => ({ key: k, form: formLine(d.form?.[k]), career: line(stats[k]), name: cred.get(k)?.name ?? preds.get(k)?.player_name ?? k, team: cred.get(k)?.team ?? '', role: cred.get(k)?.role ?? preds.get(k)?.role, credit: Number(cred.get(k)?.credit ?? NaN), xp: Number(preds.get(k)?.expected_points ?? 0), reason: preds.get(k)?.reason ?? '' });
     const xi = fin.xi.map(mk);
     const eligible = new Set<string>([...(d.match.xi?.teamA ?? []), ...(d.match.xi?.teamB ?? []), ...(d.match.xi?.impact ?? [])]);
     const benchAll = [...eligible].filter((k) => !fin.xi.includes(k) && preds.has(k)).map(mk).sort((a, b) => b.xp - a.xp);
@@ -143,7 +144,7 @@ export default function TeamPage() {
                   </div>
                   <div className="xp num">{p.xp}<small>{cr(p.credit)}</small></div>
                   <div className="r">{p.reason}</div>
-                  <div className="r" style={{ color: 'var(--mute)', fontSize: 12 }}>{p.career ?? 'Career stats: not found'} · Last 10: not available</div>
+                  <div className="r" style={{ color: 'var(--mute)', fontSize: 12 }}>{p.career ?? 'Career stats: not found'} · {p.form}</div>
                 </div>
               ))}
             </div>

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cricket, TTL } from '@/backend/integrations/cricketdata';
+import { FORM_MIN, type Form } from '@/shared/form';
 
 /**
  * Overall (career) stats from CricketData. Honest limits, measured on a real squad:
@@ -77,9 +78,10 @@ export async function careerStatsFor(sb: SupabaseClient, p: { name: string; team
   }
 }
 
-export function describeStats(s?: PlayerStats): string {
-  if (!s?.found) return 'OVERALL: not available. RECENT (last 10): not available';
+export function describeStats(s?: PlayerStats, f?: Form): string {
+  const recent = f?.n ? `RECENT (fantasy points in the last ${f.n} matches recorded by this app, newest first): ${f.points.join(', ')} (avg ${f.avg})${f.n < FORM_MIN ? ' [too few matches to weigh]' : ''}` : 'RECENT: no match history recorded yet, do not assume or invent recent form';
+  if (!s?.found) return `OVERALL: not available. ${recent}`;
   const bat = `${s.matches} matches, ${s.runs} runs, avg ${s.batting_avg ?? '-'}, SR ${s.strike_rate ?? '-'}`;
   const bowl = s.wickets ? `, ${s.wickets} wkts, bowl avg ${s.bowling_avg ?? '-'}, eco ${s.economy ?? '-'}` : '';
-  return `OVERALL (${s.scope}): ${bat}${bowl}. RECENT (last 10): not available, do not assume or invent recent form`;
+  return `OVERALL (${s.scope}): ${bat}${bowl}. ${recent}`;
 }

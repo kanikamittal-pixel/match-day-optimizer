@@ -87,13 +87,14 @@ export async function predictExpectedPoints(
     weightsVersion: number;
     stageLabel: string;
     stats?: Record<string, any>;
+    form?: Record<string, any>;
   },
 ): Promise<PredictionRow[]> {
   const { match, pool, weights } = args;
   const playbook = await loadPlaybook(sb);
   const patterns = await errorPatternsFor(sb, match.venue, match.context?.pitch_type ?? null);
   const ctx = match.context ?? {};
-  const roster = pool.map((p) => `${p.name} | ${p.team} | ${p.role} | ${p.credit > 0 ? `${p.credit}cr` : 'credit n/a'} | ${describeStats(args.stats?.[p.key])}`).join('\n');
+  const roster = pool.map((p) => `${p.name} | ${p.team} | ${p.role} | ${p.credit > 0 ? `${p.credit}cr` : 'credit n/a'} | ${describeStats(args.stats?.[p.key], args.form?.[p.key])}`).join('\n');
   const schema = S.obj({
     players: S.arr(S.obj({ name: S.str, batting_position: S.int, expected_points: S.num, reason: S.str })),
   });
@@ -103,11 +104,11 @@ CONDITIONS (from live search): pitch ${ctx.pitch_report ?? 'unknown'}; surface $
 APPROVED SCORING WEIGHTS v${args.weightsVersion} (points per event; adj_* are situational multipliers, 1 = neutral): ${JSON.stringify(weights)}
 ARYAN'S PLAYBOOK RULES (apply them; where owner is aryan his judgement overrides yours): ${playbook.length ? playbook.map((r) => `[${r.owner}] ${r.situation}: ${r.rule}`).join(' | ') : 'none'}
 PAST PREDICTION-ERROR PATTERNS (correct for these): ${patterns}
-PLAYERS (name | team | Dream11 role | credits | statistics from a web search):
+PLAYERS (name | team | Dream11 role | credits | statistics: OVERALL career figures and RECENT form):
 ${roster}
 
 For EVERY player above return: name (exactly as given), batting_position (1-11 expected batting slot, 0 if unlikely to bat), expected_points (your estimate of Dream11 fantasy points for this match, one decimal), reason.
-REASON RULES: one sentence, max 25 words, must cite something specific to THIS match: venue record, record vs this opposition, the pitch, batting position or conditions (e.g. "Opens on a slow surface here where first-innings par is 158"). Base each estimate on the OVERALL career figures given plus the conditions. Recent form is NOT available for any player, so never claim recent form or a streak. Never write generic reasons like "in good form", "key player", "consistent performer", "reliable option".`;
+REASON RULES: one sentence, max 25 words, must cite something specific to THIS match: venue record, record vs this opposition, the pitch, batting position or conditions (e.g. "Opens on a slow surface here where first-innings par is 158"). Give OVERALL career figures and RECENT form EQUAL weight when both exist (RECENT counts only when it covers at least 3 matches). RECENT is fantasy points from this app's own records, so refer to it as recent fantasy returns. If a player has no recent history, never claim recent form or a streak. Never write generic reasons like "in good form", "key player", "consistent performer", "reliable option".`;
 
   let feedback = '';
   for (let attempt = 0; attempt < 3; attempt++) {

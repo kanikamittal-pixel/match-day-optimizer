@@ -2,6 +2,7 @@ import { handle } from '@/backend/http';
 import { must, requireUser } from '@/backend/integrations/supabase';
 import { loadActiveWeights } from '@/backend/db/queries';
 import { preflight, stageLabel } from '@/backend/services/preflight';
+import { recentForm } from '@/backend/services/history';
 import { predictExpectedPoints } from '@/backend/services/pipeline';
 
 
@@ -12,7 +13,7 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   const { match, pool, stage } = await preflight(sb, id);
   const { version, weights } = await loadActiveWeights(sb);
   const { data: st } = await sb.from('api_cache').select('payload').eq('key', `stats:${id}`).maybeSingle();
-  const rows = await predictExpectedPoints(sb, { match, pool, weights, weightsVersion: version, stageLabel: stageLabel(stage), stats: st?.payload?.players });
+  const rows = await predictExpectedPoints(sb, { match, pool, weights, weightsVersion: version, stageLabel: stageLabel(stage), stats: st?.payload?.players, form: await recentForm(sb, pool.map((p) => p.key), id) });
   const byKey = new Map(pool.map((p) => [p.key, p]));
   must(await sb.from('predictions').delete().eq('match_id', id), 'clear predictions');
   must(
