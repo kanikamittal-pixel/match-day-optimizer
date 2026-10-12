@@ -1,7 +1,6 @@
 # frontend/
-Everything that runs in the browser.
-- `pages/`: one file per screen: home, login, match-setup, match-team, match-result, insights, settings. `app/**/page.tsx` contains one-line shims that point here, because Next.js needs pages under `app/`.
-- `components/`: credit table, XI picker, nav, UI atoms.
-- `api.ts`: the fetch wrapper that talks to the backend, and screenshot downscaling.
+Everything that runs in the browser. It never reads a secret and never calls Gemini, CricketData, RapidAPI or Supabase directly; it only talks to `/api/...` (the backend).
+- `pages/`: one file per screen. `home` (dashboard), `match-setup` (squad and XI), `match-team` (team card and decisions), `match-result`, `report` (Match Report, one match), `insights` (all matches), `settings`, `login`. `app/**/page.tsx` holds one-line shims that point here.
+- `components/`: `SquadEditor`, `Overview`, `Backtests`, `DataCheck`, `Rubric`, `StyleCard`, `FaceOff`, `Sparkline`, `Nav`, small UI pieces.
+- `api.ts`: the fetch wrapper, and screenshot downscaling.
 - `styles/globals.css`: the design system.
-The frontend never reads a secret and never calls Gemini, CricketData, RapidAPI or Supabase directly.
