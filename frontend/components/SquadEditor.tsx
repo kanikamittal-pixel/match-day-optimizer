@@ -47,7 +47,7 @@ export default function SquadEditor({ matchId, teams, initial, confirmedInitial,
     if (!files?.length) return;
     setBusy('Reading your screenshots…'); setErr(''); setNote(null);
     try {
-      const images = await Promise.all([...files].slice(0, 3).map(imageToPayload));
+      const images = await Promise.all([...files].slice(0, 3).map((f) => imageToPayload(f)));
       const { rows: out } = await api(`/api/matches/${matchId}/credits/extract`, { method: 'POST', json: { images } });
       const have = new Set(rows.map((r) => nameKey(r.name)));
       const fresh = out.filter((r: any) => !have.has(nameKey(r.name)));
