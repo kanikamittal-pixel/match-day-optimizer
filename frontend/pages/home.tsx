@@ -193,7 +193,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {days.length > 1 && (
+      {days.length > 0 && (
         <div className="daybar">
           <span className="sub">Day</span>
           <div className="chips">
@@ -201,12 +201,12 @@ export default function Dashboard() {
               <span key={k} className={`chip ${day === k ? 'on' : ''}`} onClick={() => setDay(day === k ? '' : k)}>{dayLabel(v.iso)} · {v.n}</span>
             ))}
           </div>
-          <input type="date" className="daypick" value={day} min={days[0][0]} max={days[days.length - 1][0]} onChange={(e) => setDay(e.target.value)} aria-label="Pick a date" />
+          <input type="date" className="daypick" value={day} onChange={(e) => setDay(e.target.value)} aria-label="Pick a date" />
           {day && <a className="sub" style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={() => setDay('')}>Any day</a>}
         </div>
       )}
 
-      {groups.length === 0 && <p className="sub">No matches here. {(filter !== 'all' || day) && <a style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={() => { setFilter('all'); setQ(''); setDay(''); }}>Show all</a>}</p>}
+      {groups.length === 0 && <p className="sub">{day ? 'No matches on that day.' : 'No matches here.'} {(filter !== 'all' || day) && <a style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={() => { setFilter('all'); setQ(''); setDay(''); }}>Show all</a>}</p>}
       {groups.map(([label, list]) => (
         <div key={label}>
           <div className="daylabel">{label}</div>
