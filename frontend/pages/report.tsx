@@ -77,9 +77,11 @@ export default function Report() {
   const [d, setD] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [who, setWho] = useState<'agent' | 'aryan'>('agent'); // whose team the report is about
 
   useEffect(() => { api('/api/report').then((r) => { setList(r.matches); const played = r.matches.find((m: any) => m.date && new Date(m.date).getTime() < Date.now()) ?? r.matches[0]; // open on the latest match that has been played
       if (played) setKey(played.key); }).catch((e) => setErr(e.message)); }, []);
+  useEffect(() => setWho('agent'), [key]);
   useEffect(() => {
     if (!key) return;
     setBusy(true); setErr('');
@@ -88,7 +90,7 @@ export default function Report() {
 
   if (err && !list) return <Banner kind="bad">{err}</Banner>;
   if (!list) return <div className="skel" style={{ height: 240, marginTop: 14 }} />;
-  const r = d?.report;
+  const r = who === 'aryan' && d?.aryanReport ? d.aryanReport : d?.report;
   const h = r?.headline;
 
   return (
@@ -105,6 +107,13 @@ export default function Report() {
         <>
           <div className="pf-stamp">Team recommended by the agent on <b>{when(d.recommendedAt)}</b>{d.venue ? ` · ${d.venue}` : ''}</div>
           {d.pending && <Banner kind="warn">{d.pending}</Banner>}
+          {d.aryanReport && (
+            <div className="seg compact" style={{ margin: '10px 0' }}>
+              <button className={who === 'agent' ? 'on' : ''} onClick={() => setWho('agent')}>The agent's team</button>
+              <button className={who === 'aryan' ? 'on' : ''} onClick={() => setWho('aryan')}>Aryan's final team</button>
+            </div>
+          )}
+          {d.aryanReport && who === 'aryan' && <p className="sub" style={{ margin: '0 0 6px' }}>The team Aryan finalised in the app after his changes, which is the one he copies into Dream11.</p>}
           {r && (
             <>
               <div className="rp-tiles">
@@ -121,7 +130,7 @@ export default function Report() {
 
               <h2>Our picks vs the real top 11</h2>
               <div className="rp-two">
-                <TeamTable title="What the agent picked" rows={r.ours} mark="inTop11" />
+                <TeamTable title={who === 'aryan' && d.aryanReport ? 'What Aryan picked' : 'What the agent picked'} rows={r.ours} mark="inTop11" />
                 <TeamTable title="The real top 11 (best valid team)" rows={r.top11} mark="inOurXI" />
               </div>
 

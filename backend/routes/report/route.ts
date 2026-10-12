@@ -33,7 +33,7 @@ export const GET = handle(async (req: Request) => {
   const latest = new Map<string, any>();
   for (const r of bt) if (!latest.has(r.ref) || String(r.logic) > String(latest.get(r.ref).logic)) latest.set(r.ref, r);
 
-  const decisions = must(await sb.from('team_decisions').select('match_id,recommended,created_at'), 'decisions') as any[];
+  const decisions = must(await sb.from('team_decisions').select('match_id,recommended,final,created_at'), 'decisions') as any[];
   const ids = decisions.map((d) => d.match_id);
   const matches = ids.length ? (must(await sb.from('matches').select('id,name,starts_at,team_a,team_b').in('id', ids), 'matches') as any[]) : [];
 
@@ -65,12 +65,16 @@ export const GET = handle(async (req: Request) => {
   const pair = pairNames(res.players.map((p) => p.name), preds.map((p) => p.player_name), viaAlias);
   const predFor = new Map(pair.paired.map((x) => [x.read, preds.find((p) => p.player_name === x.rec)]));
   const nameOf = new Map(preds.map((p) => [p.name_key, p.player_name]));
-  const ourXI = (d.recommended.xi as string[]).map((k) => nameOf.get(k) ?? k);
+  const nm = (k: string) => nameOf.get(k) ?? k;
+  const ourXI = (d.recommended.xi as string[]).map(nm);
+  const fin = d.final as { xi: string[]; captain: string; vc: string } | null;
+  const finXI = fin ? fin.xi.map(nm) : ourXI;
+  const changed = !!fin && (JSON.stringify([...finXI].sort()) !== JSON.stringify([...ourXI].sort()) || nm(fin.captain) !== nm(d.recommended.captain) || nm(fin.vc) !== nm(d.recommended.vc));
   const players: RPlayer[] = res.players.map((p) => {
     const q = predFor.get(p.name);
     return { name: q?.player_name ?? p.name, team: q?.team ?? p.team, role: q?.role ?? 'BAT', batPos: p.batPos, predicted: q ? Number(q.expected_points) : null, base: null, adjustment: null, actual: p.points, baseline: null, reason: q?.reason ?? null, played: true, inOurXI: false, inTop11: false };
   });
-  for (const n of ourXI) if (!players.some((p) => p.name === n)) { // in our team but did not play: scores 0
+  for (const n of [...new Set([...ourXI, ...finXI])]) if (!players.some((p) => p.name === n)) { // in our team but did not play: scores 0
     const q = preds.find((p) => p.player_name === n);
     if (q) players.push({ name: n, team: q.team, role: q.role, batPos: null, predicted: Number(q.expected_points), base: null, adjustment: null, actual: 0, baseline: null, reason: q.reason, played: false, inOurXI: false, inTop11: false });
   }
@@ -80,6 +84,10 @@ export const GET = handle(async (req: Request) => {
   const built = buildBestXI(pool, noKeeper.length ? { ...rules, role_min: { ...rules.role_min, WK: 0 } } : rules);
   if (!built) return { ...head, source: res.source, pending: 'The best possible team could not be worked out for this match.', report: null };
   const topTwo = [...built.team].sort((a, b) => b.xp - a.xp).slice(0, 2).map((p) => p.name);
-  const report = matchReport(players, { xi: ourXI, captain: nameOf.get(d.recommended.captain) ?? d.recommended.captain, vc: nameOf.get(d.recommended.vc) ?? d.recommended.vc }, { xi: built.team.map((p) => p.name), captain: topTwo[0], vc: topTwo[1] }, null, { c: rules.captain_mult, vc: rules.vc_mult });
-  return { ...head, source: res.source, pending: null, report };
+  const top = { xi: built.team.map((p) => p.name), captain: topTwo[0], vc: topTwo[1] };
+  const mult = { c: rules.captain_mult, vc: rules.vc_mult };
+  const report = matchReport(players, { xi: ourXI, captain: nm(d.recommended.captain), vc: nm(d.recommended.vc) }, top, null, mult);
+  // If Aryan changed the team before finalising, the same report for his version
+  const aryanReport = changed && fin ? matchReport(players, { xi: finXI, captain: nm(fin.captain), vc: nm(fin.vc) }, top, null, mult) : null;
+  return { ...head, source: res.source, pending: null, report, aryanReport };
 });
