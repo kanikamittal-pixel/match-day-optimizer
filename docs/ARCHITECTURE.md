@@ -6,8 +6,8 @@ One Next.js project, split into clearly separated layers. Each tool in the stack
  Browser (phone)                    Vercel server                         External services
 ┌──────────────────┐   fetch()   ┌─────────────────────────┐          ┌──────────────────┐
 │ FRONTEND         │ ──────────▶ │ BACKEND                 │ ───────▶ │ Gemini Flash     │
-│ app/ (pages)     │             │ app/api/ (HTTP routes)  │ ───────▶ │ CricketData.org  │
-│ client/          │ ◀────────── │ server/ (logic)         │ ───────▶ │ Supabase         │
+│ frontend/        │             │ backend/routes/ (API)   │ ───────▶ │ CricketData.org  │
+│ client/          │ ◀────────── │ backend/ (logic)        │ ───────▶ │ Supabase         │
 └──────────────────┘    JSON     │ shared/ (pure rules)    │          └──────────────────┘
                                  └─────────────────────────┘
 ```
@@ -16,28 +16,31 @@ One Next.js project, split into clearly separated layers. Each tool in the stack
 
 | Layer | Folder | What is in it | Runs in |
 |---|---|---|---|
-| **Frontend: pages** | `app/` (all `page.tsx`, `layout.tsx`, `globals.css`) | Home, match setup, team card, results, Insights, Settings, login | Browser |
-| **Frontend: components & helpers** | `client/` | Credit table, XI picker, nav, UI atoms, `api.ts` (fetch wrapper, image downscaling) | Browser |
-| **Backend: HTTP API** | `app/api/**/route.ts` | Thin endpoints. They check input, call `server/`, return JSON. Next.js requires routes to live under `app/` | Server |
-| **Backend: business logic** | `server/services/` | Prediction/captain prompts, preflight "stop and ask" gate, insights maths | Server |
-| **Backend: database access** | `server/db/` | Supabase queries: rules, weights, playbook, match, credits | Server |
-| **Shared pure logic** | `shared/` | Rules engine (best XI search, validator, fixes), generic-reason filter, name matching, default weights, types. No network, no AI | Server and browser |
-| **Auth gate** | `middleware.ts` | Redirects signed-in/out users (Next.js requires this at the root) | Edge |
+| **FRONTEND** | `frontend/pages/` | One file per screen: home, login, match setup, team card, results, Insights, Settings | Browser |
+| | `frontend/components/` | Credit table, XI picker, nav, UI atoms | Browser |
+| | `frontend/api.ts`, `frontend/styles/` | Fetch wrapper, screenshot downscaling, design system CSS | Browser |
+| **BACKEND** | `backend/routes/` | The HTTP endpoints: validate input, call services, return JSON | Server |
+| | `backend/services/` | Gemini prompts, preflight "stop and ask" gate, insights maths | Server |
+| | `backend/integrations/` | One file per external tool (Gemini, CricketData, RapidAPI, Supabase) | Server |
+| | `backend/db/` | Supabase queries | Server |
+| **SHARED** | `shared/` | Rules engine (best XI, validator), generic-reason filter, types. No network, no AI | Both |
+| **DATABASE** | `supabase/migrations/` | Schema SQL | Supabase |
+| **Next.js glue** | `app/`, `middleware.ts` | One-line shims that map URLs to `frontend/pages/` and `backend/routes/` (Next.js requires routes under `app/`), plus the root layout | n/a |
 
 ## Tool → folder
 
 | Tool | Used for | Folder / files |
 |---|---|---|
-| **Next.js 15 + React 19 + TypeScript** | Frontend and API routes | `app/`, `client/`, `server/` |
-| **Gemini Flash** (Google AI) | Screenshot reading, Search-grounded conditions, expected points, captains, pattern finder | `server/integrations/gemini.ts` (client), `server/services/pipeline.ts` and `app/api/insights/analyze/` (prompts) |
-| **CricketData.org** | Fixtures, toss, squads | `server/integrations/cricketdata.ts` (cache + 95/day budget) |
-| **RapidAPI: Free Cricbuzz Cricket API** | Upcoming fixtures (second source, deduped against CricketData) | `server/integrations/rapidapi.ts` (cache + 90/month budget) |
-| **Supabase** (Postgres + Auth) | All data storage and login | `server/integrations/supabase.ts`, `server/db/`, `supabase/migrations/` (schema) |
+| **Next.js 15 + React 19 + TypeScript** | Frontend and API routes | `frontend/`, `backend/` |
+| **Gemini Flash** (Google AI) | Screenshot reading, Search-grounded conditions, expected points, captains, pattern finder | `backend/integrations/gemini.ts` (client), `backend/services/pipeline.ts` and `backend/routes/insights/analyze/` (prompts) |
+| **CricketData.org** | Fixtures, toss, squads | `backend/integrations/cricketdata.ts` (cache + 95/day budget) |
+| **RapidAPI: Free Cricbuzz Cricket API** | Upcoming fixtures (second source, deduped against CricketData) | `backend/integrations/rapidapi.ts` (cache + 90/month budget) |
+| **Supabase** (Postgres + Auth) | All data storage and login | `backend/integrations/supabase.ts`, `backend/db/`, `supabase/migrations/` (schema) |
 | **Vercel** | Hosting | `next.config.mjs`, env vars in the Vercel dashboard |
 | **Vitest** | Tests of the rules engine | `tests/`, `vitest.config.ts` |
-| **html-to-image** | "Save image" on the team card | `app/match/[id]/team/page.tsx` |
+| **html-to-image** | "Save image" on the team card | `frontend/pages/match-team.tsx` |
 
 ## Rule of thumb for grading
-- *AI decisions* (estimates, reasons, captain) → `server/services/pipeline.ts`.
+- *AI decisions* (estimates, reasons, captain) → `backend/services/pipeline.ts`.
 - *Hard rules* (is the team valid, who is the best XI) → `shared/rules.ts`. **No AI there, by design.**
-- *Secrets* → only read in `server/integrations/*` and `middleware.ts`; never in `app/` pages or `client/`.
+- *Secrets* → only read in `backend/integrations/*` and `middleware.ts`; never in `frontend/`.

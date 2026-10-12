@@ -4,7 +4,7 @@ A Dream11 match-day tool for one owner (Aryan). It researches the match, builds 
 
 Stack: Next.js 15 (App Router) on Vercel · Supabase (Postgres + Auth) · Gemini Flash (the only AI) · CricketData.org. No Anthropic/Claude API is used anywhere in the code.
 
-> **Grading guide:** see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a map of every tool in the stack and the folder it lives in. Frontend: `app/` + `client/`. Backend: `app/api/` + `server/`. Pure rules: `shared/`. Database: `supabase/`.
+> **Grading guide:** see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a map of every tool in the stack and the folder it lives in. **Frontend:** `frontend/`. **Backend:** `backend/`. Pure rules: `shared/`. Database: `supabase/`.
 
 ## Setup
 
@@ -41,18 +41,18 @@ Push to GitHub, import in Vercel, add the same variables, deploy. Routes that ca
 
 | Map lane / box | Where it lives |
 |---|---|
-| **Aryan** · picks match, uploads screenshots, contest type | `app/page.tsx`, `app/match/[id]/page.tsx`, `client/components/CreditsEditor.tsx` |
-| **Aryan** · reviews & submits (decision gate) | `app/match/[id]/team/page.tsx`, `app/api/matches/[id]/decision/route.ts` |
-| **Aryan** · post-match points | `app/match/[id]/result/page.tsx`, `.../results/route.ts` |
-| **Aryan** · approves/rejects weights | Insights + Settings pages, `app/api/settings/suggestions/route.ts` |
-| **Gemini** · reads credit screenshots | `.../credits/extract/route.ts` |
-| **Gemini** · expected points | `server/services/pipeline.ts → predictExpectedPoints`, `.../predict/route.ts` |
-| **Gemini** · C & VC + why per pick | `server/services/pipeline.ts → pickCaptains` |
-| **Gemini** · pattern finder | `app/api/insights/analyze/route.ts` |
-| **Cricket data API** · fixtures, toss, squads | `server/integrations/cricketdata.ts` (cache + budget), `app/api/matches/route.ts`, `.../xi/route.ts` |
+| **Aryan** · picks match, uploads screenshots, contest type | `frontend/pages/home.tsx`, `frontend/pages/match-setup.tsx`, `frontend/components/CreditsEditor.tsx` |
+| **Aryan** · reviews & submits (decision gate) | `frontend/pages/match-team.tsx`, `backend/routes/matches/[id]/decision/route.ts` |
+| **Aryan** · post-match points | `frontend/pages/match-result.tsx`, `backend/routes/matches/[id]/results/route.ts` |
+| **Aryan** · approves/rejects weights | Insights + Settings pages, `backend/routes/settings/suggestions/route.ts` |
+| **Gemini** · reads credit screenshots | `backend/routes/matches/[id]/credits/extract/route.ts` |
+| **Gemini** · expected points | `backend/services/pipeline.ts → predictExpectedPoints`, `.../predict/route.ts` |
+| **Gemini** · C & VC + why per pick | `backend/services/pipeline.ts → pickCaptains` |
+| **Gemini** · pattern finder | `backend/routes/insights/analyze/route.ts` |
+| **Cricket data API** · fixtures, toss, squads | `backend/integrations/cricketdata.ts` (cache + budget), `backend/routes/matches/route.ts`, `.../xi/route.ts` |
 | **Match Day App** · build XI & validate (code) | `shared/rules.ts` (`buildBestXI`, `validateTeam`, `suggestFixes`) |
-| **Match Day App** · team card | `app/match/[id]/team/page.tsx`, `.teamcard` in `globals.css` |
-| **Supabase** · loads memory | `server/db/queries.ts` (`loadActiveWeights`, `loadPlaybook`), `errorPatternsFor` |
+| **Match Day App** · team card | `frontend/pages/match-team.tsx`, `.teamcard` in `frontend/styles/globals.css` |
+| **Supabase** · loads memory | `backend/db/queries.ts` (`loadActiveWeights`, `loadPlaybook`), `errorPatternsFor` |
 | **Supabase** · saves prediction / predicted vs actual / new weights | tables `predictions`, `actual_points`, `scoring_weights` (versioned) |
 | **Claude Code** | Build-time only. Not referenced at runtime. |
 
