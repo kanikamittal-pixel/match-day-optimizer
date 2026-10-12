@@ -35,7 +35,9 @@ Push to GitHub, import in Vercel, add the same variables, deploy. Routes that ca
 - **Lock / exclude and re-optimise.** Tap a player (in the XI or on the bench) to lock or exclude them, then re-optimise: the exact solver rebuilds the best valid XI around your choices, you see the changes once, and tag them gut or reasoned.
 - **Agent vs a simple baseline.** Insights compares the agent's per-player misses with a plain "last-5 average" baseline, with a bootstrap 95% range, and says "too early to tell" until there are 20 comparable players.
 
-Ideas in this section were borrowed from two public repos, RK0297/DREAM11-TEAM-PREDICTOR and Janu-Chaudhary/Predict-11. No code was copied (neither has a licence file); the logic was re-implemented.
+**Scoring table: what it is and when it was checked.** The values in `shared/scoring.ts` match Dream11's own T20 points page as fetched on 12 Oct 2026 (run +1, boundary bonus +4, six bonus +6, milestones 25/50/75/100 = +4/+8/+12/+16, wicket +30, dot ball +1, LBW/bowled +8, 3/4/5-wicket +4/+8/+12, maiden +12, strike-rate and economy bands, catch +8, 3-catch +4, stumping +12, run out +12/+6, C 2x, VC 1.5x). Dream11's real-money contests ended in August 2025 (Promotion and Regulation of Online Gaming Act); that page shows no scoring change after the wicket value moved to +30 earlier in 2025. Weights version 2 holds these values and is the active version. Team-composition limits are NOT on that page, so the limits in Settings (7 per team, WK 1-4, BAT 3-6, AR 1-4, BOWL 3-6) are unverified against the current app.
+
+Ideas in this section were borrowed from two public repos, RK0297/DREAM11-TEAM-PREDICTOR (created 4 May 2025, last updated 4 Aug 2025, so it predates the August 2025 change) and Janu-Chaudhary/Predict-11 (created 1 Dec 2025; its scoring research was rewritten on 1 Oct 2026). No code was copied (neither has a licence file); the logic was re-implemented.
 
 ## How a match flows
 

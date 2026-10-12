@@ -45,7 +45,15 @@ export default function TeamPage() {
     const types = new Map<string, string>();
     for (const e of d.decision.decisions) { if (e.kind === 'swap') types.set(e.to, e.tag); else types.set(`${e.kind}:${e.to}`, e.tag); }
     const benchReason = new Map<string, string>(rec.bench.map((b: any) => [b.key, b.reason]));
-    return { xi, benchAll, violations, types, fin, rec, benchReason, credits: creditsUsed(xi), totalXp: Math.round(xi.reduce((s: number, p: any) => s + p.xp, 0) * 10) / 10, mk, valid: violations.length === 0 };
+    const everyone = [...new Set([...fin.xi, ...benchAll.map((b: any) => b.key)])].map(mk);
+    const noHistory = everyone
+      .filter((p: any) => stats[p.key]?.base === undefined)
+      .map((p: any) => {
+        const h = stats[p.key];
+        const why = !h ? 'history not looked up yet' : h.found && h.n_all ? `only ${h.n_all} T20 match${h.n_all === 1 ? '' : 'es'} on record (${h.cs_name})` : h.found ? h.note ?? 'too little history' : h.note ?? 'no history found';
+        return { name: p.name, team: p.team, in_xi: fin.xi.includes(p.key), why };
+      });
+    return { noHistory, xi, benchAll, violations, types, fin, rec, benchReason, credits: creditsUsed(xi), totalXp: Math.round(xi.reduce((s: number, p: any) => s + p.xp, 0) * 10) / 10, mk, valid: violations.length === 0 };
   }, [d]);
 
   if (err && !d) return <Banner kind="bad">{err}</Banner>;
@@ -183,6 +191,17 @@ export default function TeamPage() {
         </div>
         <div className="d-foot"><span>Expected <b className="num">{view.totalXp}</b> pts</span><span>C {cap.name} · VC {view.mk(view.fin.vc).name}</span></div>
       </div>
+
+      {view.noHistory.length > 0 && (
+        <div className="banner warn">
+          <b>No fantasy history for {view.noHistory.length} player{view.noHistory.length === 1 ? '' : 's'}.</b> Their expected points come from Gemini's own estimate, not from a computed base.
+          {view.noHistory.map((p: any) => (
+            <div key={p.name + p.team} style={{ marginTop: 4 }}>
+              • <b>{p.name}</b> <span className="sub">({short(p.team)}{p.in_xi ? '' : ', bench'})</span>: {p.why}
+            </div>
+          ))}
+        </div>
+      )}
 
       <h2>Why these picks</h2>
       <div className="card flat">
