@@ -38,7 +38,7 @@ export default function Settings() {
         <div className="row">
           <div className="grow"><label className="f">Players in the team</label><div className="fixed">{DREAM11.teamSize} <span className="sub">fixed by Dream11</span></div></div>
           <div className="grow"><label className="f">Credit cap</label><input type="number" min={DREAM11.creditCap.min} max={DREAM11.creditCap.max} value={rules.credit_cap} onChange={(e) => setNum('credit_cap', e.target.value)} /><div className="sub">{DREAM11.creditCap.min} to {DREAM11.creditCap.max}</div></div>
-          <div className="grow"><label className="f">Max from one team</label><input type="number" min={DREAM11.maxPerTeam.min} max={DREAM11.maxPerTeam.max} value={rules.max_per_team} onChange={(e) => setNum('max_per_team', e.target.value)} /><div className="sub">{DREAM11.maxPerTeam.min} to {DREAM11.maxPerTeam.max}</div></div>
+          <div className="grow"><label className="f">Max from one team</label><input type="number" min={DREAM11.maxPerTeam.min} max={DREAM11.maxPerTeam.max} value={rules.max_per_team} onChange={(e) => setNum('max_per_team', e.target.value)} /><div className="sub">Dream11 allows up to {DREAM11.maxPerTeam.max} per team. We use 7 by default; you can raise it to {DREAM11.maxPerTeam.max}.</div></div>
         </div>
         <div className="row">
           <div className="grow"><label className="f">Captain points</label><div className="fixed">{DREAM11.captainMult}× <span className="sub">fixed</span></div></div>
