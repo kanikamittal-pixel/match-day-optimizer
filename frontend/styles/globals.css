@@ -337,3 +337,18 @@ details.cond summary::-webkit-details-marker { display: none; }
 .rp-col, .rp-box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
 .rp-list { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
 .rp-miss b .sub { font-weight: 500; }
+
+/* Players to watch legend */
+.wlegend { margin: 4px 0 8px; font-size: 12.5px; line-height: 1.5; }
+.wlegend .lg { display: inline-block; width: 9px; height: 9px; border-radius: 2px; vertical-align: baseline; margin: 0 2px 0 4px; }
+.wlegend .lg.g { background: var(--good); } .wlegend .lg.b { background: var(--blue); } .wlegend .lg.m { background: var(--mute); }
+.wmean { width: 64px; text-align: right; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
+.wmean b { font-size: 20px; } .wmean span { font-size: 10.5px; color: var(--mute); text-transform: uppercase; letter-spacing: .04em; }
+/* Match Report: match picker */
+.mp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; margin: 6px 0 10px; }
+.mp-card { text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 14px; border: 2px solid var(--line); background: var(--card); cursor: pointer; transition: border-color .15s, transform .15s; }
+.mp-card:hover { border-color: color-mix(in srgb, var(--accent) 60%, transparent); transform: translateY(-2px); }
+.mp-card.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+.mp-title { font-weight: 800; }
+.mp-score { margin-top: 2px; font-size: 12.5px; color: var(--mute); }
+.mp-score b { font-size: 20px; color: var(--text); }

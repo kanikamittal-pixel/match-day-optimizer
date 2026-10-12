@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/frontend/api';
-import { Banner } from '@/frontend/components/ui';
+import { Banner, short } from '@/frontend/components/ui';
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const sign = (n: number) => (n > 0 ? `+${n}` : `${n}`);
@@ -41,6 +41,36 @@ function Compare({ title, a, b, labelKey }: { title: string; a: any[]; b: any; l
   );
 }
 
+type Item = { key: string; kind: string; title: string; date: string | null; ourPoints?: number; topPoints?: number };
+
+function MatchPicker({ list, value, onPick }: { list: Item[]; value: string; onPick: (k: string) => void }) {
+  const [q, setQ] = useState('');
+  const now = Date.now();
+  const shown = list.filter((m) => m.title.toLowerCase().includes(q.trim().toLowerCase()));
+  const done = shown.filter((m) => m.kind === 'backtest' || (m.date && new Date(m.date).getTime() < now));
+  const soon = shown.filter((m) => !done.includes(m));
+  const card = (m: Item) => {
+    const [a, b] = m.title.split(/\s+vs?\.?\s+/i).map((x) => x.split(',')[0].trim());
+    const pct = m.ourPoints && m.topPoints ? Math.round((m.ourPoints / m.topPoints) * 100) : null;
+    return (
+      <button key={m.key} className={`mp-card ${m.key === value ? 'on' : ''}`} onClick={() => onPick(m.key)} aria-pressed={m.key === value}>
+        <div className="row" style={{ gap: 6 }}><span className="d-code sm">{short(a || '')}</span><span className="vs">v</span><span className="d-code sm b">{short(b || '')}</span></div>
+        <div className="mp-title">{m.title.split(',')[0]}</div>
+        <div className="sub">{m.date ? new Date(m.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</div>
+        {m.kind === 'backtest' ? <div className="mp-score"><b className="num">{pct}%</b><span> of the best team · {m.ourPoints} / {m.topPoints}</span></div> : <div className="mp-score"><span className="pill warn">Live team</span></div>}
+      </button>
+    );
+  };
+  return (
+    <div className="mp">
+      <input type="text" className="search" placeholder="Search a team…" value={q} onChange={(e) => setQ(e.target.value)} />
+      {done.length > 0 && <><div className="daylabel">Played</div><div className="mp-grid">{done.map(card)}</div></>}
+      {soon.length > 0 && <><div className="daylabel">Not played yet</div><div className="mp-grid">{soon.map(card)}</div></>}
+      {shown.length === 0 && <p className="sub">No match found.</p>}
+    </div>
+  );
+}
+
 export default function Report() {
   const [list, setList] = useState<{ key: string; kind: string; title: string; date: string | null }[] | null>(null);
   const [key, setKey] = useState('');
@@ -65,9 +95,7 @@ export default function Report() {
     <>
       <h1>Match Report</h1>
       <p className="sub">Pick one match to see exactly what the agent chose, how those players scored against the real top 11, and where it fell short. This page is about one match only; the all-matches view that trains the model is under Insights.</p>
-      <select value={key} onChange={(e) => setKey(e.target.value)} aria-label="Choose a match">
-        {list.map((m) => <option key={m.key} value={m.key}>{m.title} · {m.date ? new Date(m.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : ''} · {m.kind === 'live' ? 'live team' : 'back-test'}</option>)}
-      </select>
+      <MatchPicker list={list} value={key} onPick={setKey} />
       {list.length === 0 && <p className="sub">No team has been built yet. Build a team for a match and it appears here.</p>}
       {err && <Banner kind="bad">{err}</Banner>}
       {busy && <div className="skel" style={{ height: 200, marginTop: 14 }} />}

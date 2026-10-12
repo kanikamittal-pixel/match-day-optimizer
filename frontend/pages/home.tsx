@@ -127,7 +127,8 @@ export default function Dashboard() {
         )}
         {watch && watch.teams.some((t) => t.players.length) && (
           <section className="panel watch">
-            <div className="ph"><b>Players to watch</b><span className="sub">average of last 10 T20s</span></div>
+            <div className="ph"><b>Players to watch</b><span className="sub">fantasy points per match</span></div>
+            <p className="sub wlegend">Each bar is one of the last 10 T20s (newest on the right): <i className="lg g" /> 90+ points, <i className="lg b" /> 40 to 89, <i className="lg m" /> under 40. The big number is their average Dream11 points per match. 🔥 last 3 matches well above that average, ❄️ well below.</p>
             <div className="watch-cols">
               {watch.teams.map((t) => (
                 <div key={t.team}>
@@ -137,7 +138,7 @@ export default function Dashboard() {
                     <div key={p.player} className="wrow">
                       <div className="grow"><div className="wname">{p.player}{heat(p) === 'hot' && <span title="Last 3 scores well above his 10-match average"> 🔥</span>}{heat(p) === 'cold' && <span title="Last 3 scores well below his 10-match average"> ❄️</span>}</div><div className="sub">{p.n} T20s in the last year</div></div>
                       <Sparkline values={p.recent} />
-                      <div className="wmean num">{p.mean}</div>
+                      <div className="wmean"><b className="num">{p.mean}</b><span>avg pts</span></div>
                     </div>
                   ))}
                 </div>

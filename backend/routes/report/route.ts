@@ -40,7 +40,7 @@ export const GET = handle(async (req: Request) => {
   if (!key) {
     const list = [
       ...decisions.flatMap((d) => { const m = matches.find((x) => x.id === d.match_id); return m ? [{ key: `m:${m.id}`, kind: 'live', title: m.name, date: m.starts_at }] : []; }),
-      ...[...latest.values()].map((r) => ({ key: `bt:${r.ref}`, kind: 'backtest', title: `${r.title}`, date: r.date })),
+      ...[...latest.values()].map((r) => ({ key: `bt:${r.ref}`, kind: 'backtest', title: `${r.title}`, date: r.date, ourPoints: r.metrics.agent, topPoints: r.metrics.hindsight })),
     ].sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')));
     return { matches: list };
   }
