@@ -62,7 +62,7 @@ describe('validateTeam / suggestFixes', () => {
   it('flags too many from one team and ineligible players', () => {
     const p = pool();
     const sevenPlus = p.filter((x) => x.team === 'A').slice(0, 8).concat(p.filter((x) => x.team === 'B').slice(0, 3));
-    expect(validateTeam(sevenPlus, DEFAULT_RULES).map((v) => v.code)).toContain('team_max');
+    expect(validateTeam(sevenPlus, { ...DEFAULT_RULES, max_per_team: 7 }).map((v) => v.code)).toContain('team_max');
     expect(validateTeam(sevenPlus, DEFAULT_RULES, new Set()).map((v) => v.code)).toContain('ineligible');
   });
   it('suggests swaps that keep the locked pick', () => {

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/frontend/api';
 import { Banner, Spinner, useToast } from '@/frontend/components/ui';
+import Overview from '@/frontend/components/Overview';
 import Backtests from '@/frontend/components/Backtests';
 import Rubric from '@/frontend/components/Rubric';
 import DataCheck from '@/frontend/components/DataCheck';
@@ -124,14 +125,15 @@ function YourResults() {
 
 
 export default function Insights() {
-  const tabs = [['back', 'Back-tests'], ['rubric', 'How it decides'], ['data', 'Data check'], ['you', 'You vs agent']] as const;
-  const [tab, setTab] = useState<(typeof tabs)[number][0]>('back');
+  const tabs = [['over', 'Overview'], ['back', 'Back-tests'], ['rubric', 'How it decides'], ['data', 'Data check'], ['you', 'You vs agent']] as const;
+  const [tab, setTab] = useState<(typeof tabs)[number][0]>('over');
   return (
     <>
       <h1>Insights</h1>
       <div className="seg tabs4" style={{ marginTop: 10 }}>
         {tabs.map(([k, label]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{label}</button>)}
       </div>
+      {tab === 'over' && <Overview />}
       {tab === 'back' && <Backtests />}
       {tab === 'rubric' && <Rubric />}
       {tab === 'data' && <DataCheck />}

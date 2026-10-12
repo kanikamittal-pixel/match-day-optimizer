@@ -15,8 +15,8 @@ export default function DataCheck() {
 
   return (
     <>
-      <h2>How recent form is calculated</h2>
-      <div className="card">
+      <details className="card fold">
+        <summary>How recent form is calculated</summary>
         <ol className="bt-notes" style={{ lineHeight: 1.6 }}>
           <li>Every T20 match since 2018 (internationals and the major leagues) is read ball by ball from <b>Cricsheet</b>.</li>
           <li>Each player's performance in each match is scored with Dream11's own T20 points table: runs, boundaries, wickets, dot balls, catches and so on.</li>
@@ -25,7 +25,7 @@ export default function DataCheck() {
           <li>"Recent form" is a recency-weighted average of the player's last 20 matches; "career" is the plain average of all of them. The base is half of each.</li>
         </ol>
         <p className="sub" style={{ marginBottom: 0 }}>History runs through <b>{latest}</b>. Cricsheet publishes a few days late; the daily refresh fills the gap from CricketData scorecards (dot balls estimated), then removes those rows once Cricsheet has the same match.</p>
-      </div>
+      </details>
 
       {st?.history?.latest && Date.now() - new Date(st.history.latest).getTime() > 2 * 86400000 && (
         <Banner kind="warn">
@@ -52,9 +52,9 @@ export default function DataCheck() {
       </div>
 
       {a && (
-        <>
-          <h2>Check 1 in detail: {a.title}</h2>
-          <div className="card flat" style={{ overflowX: 'auto' }}>
+        <details className="card fold">
+          <summary>Check 1 in detail: {a.title}</summary>
+          <div style={{ overflowX: 'auto' }}>
             <table className="t">
               <thead><tr><th>Player</th><th className="r">Cricsheet</th><th className="r">CricketData</th><th className="r">Difference</th></tr></thead>
               <tbody>
@@ -65,11 +65,11 @@ export default function DataCheck() {
             </table>
           </div>
           <p className="sub">{a.unmatched?.length ? `Not compared (name could not be paired): ${a.unmatched.join(', ')}. ` : ''}Small differences are expected: CricketData has no dot balls (estimated from runs and balls) and cannot tell a direct-hit run-out from an assisted one.</p>
-        </>
+        </details>
       )}
 
-      <h2>Honest limits</h2>
-      <div className="card">
+      <details className="card fold">
+        <summary>Honest limits</summary>
         <ul className="bt-notes" style={{ lineHeight: 1.6 }}>
           <li>The second-source comparison covers <b>one match</b> so far, because CricketData's free tier is capped at 100 calls a day and was used up. The same script adds more matches as the quota allows.</li>
           <li>Points are computed from the scorecard, so they are very close to, but not exactly, Dream11's own totals. There is no public Dream11 points feed to compare with.</li>
@@ -77,7 +77,7 @@ export default function DataCheck() {
           <li>Cricsheet stores names as text, so two different players with the identical written name could be merged. Unlikely, not impossible.</li>
           <li>Matches Cricsheet does not cover (some domestic sides) have no history; the app says so on the team card.</li>
         </ul>
-      </div>
+      </details>
     </>
   );
 }

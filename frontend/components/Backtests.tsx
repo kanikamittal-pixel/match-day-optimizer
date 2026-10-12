@@ -43,13 +43,6 @@ function MatchCard({ versions }: { versions: Rec[] }) {
           </tbody>
         </table>
       )}
-      {cur.formulaCheck && (
-        <div className="bt-check">
-          <b>Formula check, no Gemini, same players and roles:</b> a team built only from the old base scored <b className="num">{cur.formulaCheck.v1.points}</b> (average miss {cur.formulaCheck.v1.mae}); from the new base <b className="num">{cur.formulaCheck.v2.points}</b> (average miss {cur.formulaCheck.v2.mae}). With one match this is only an illustration: Gemini's own variation between two runs is bigger than the effect of the formula.
-        </div>
-      )}
-      {old && <p className="sub" style={{ margin: '6px 0 0' }}>This match was used to find the problems, so treat the “after” as a sanity check, not as proof. The proof is the large test below.</p>}
-
       <button className="btn sm ghost" style={{ marginTop: 10 }} onClick={() => setOpen(!open)}>{open ? 'Hide the post-mortem' : 'Show where it went wrong'}</button>
       {open && (
         <div style={{ marginTop: 10 }}>
@@ -75,6 +68,13 @@ function MatchCard({ versions }: { versions: Rec[] }) {
             </table>
           </div>
           <p className="sub">✔ in our team · ★ in the best possible team · Miss = expected minus actual (positive means we were too high).</p>
+          {cur.formulaCheck && (
+        <div className="bt-check">
+          <b>Formula check, no Gemini, same players and roles:</b> a team built only from the old base scored <b className="num">{cur.formulaCheck.v1.points}</b> (average miss {cur.formulaCheck.v1.mae}); from the new base <b className="num">{cur.formulaCheck.v2.points}</b> (average miss {cur.formulaCheck.v2.mae}). With one match this is only an illustration: Gemini's own variation between two runs is bigger than the effect of the formula.
+        </div>
+      )}
+          {old && <p className="sub" style={{ margin: '6px 0 0' }}>This match was used to find the problems, so treat the “after” as a sanity check, not as proof. The proof is the large test below.</p>}
+
           <h3 className="bt-h">How this was kept honest</h3>
           <ul className="bt-notes">{cur.notes.map((n: string, i: number) => <li key={i}>{n}</li>)}<li>“Actual” points are computed from the ball-by-ball scorecard with the Dream11 T20 table, so they are close to, but not exactly, Dream11’s own totals.</li></ul>
         </div>
@@ -101,7 +101,7 @@ export default function Backtests() {
 
   return (
     <>
-      <p className="sub" style={{ marginTop: 6 }}>I built a team for matches that had already finished, using only what was knowable <b>before</b> each one, then compared it with what really happened to find where the logic breaks. Then I tested the fixes on {f ? f.matches.toLocaleString() : 'many'} more matches.</p>
+      <p className="sub" style={{ marginTop: 6 }}>We replay finished matches using only what was known <b>before</b> each one, then compare with what happened.</p>
       <div className="tiles" style={{ marginTop: 10 }}>
         <div className="tile"><div className="k">Matches tested</div><div className="v num">{latest.length}</div><div className="s">finished matches, last 6 days</div></div>
         <div className="tile"><div className="k">Share of best possible</div><div className="v num">{avgPct}%</div><div className="s">average of our team vs the best team in hindsight</div></div>
@@ -109,15 +109,8 @@ export default function Backtests() {
         <div className="tile"><div className="k">Large test</div><div className="v num">{f ? f.matches.toLocaleString() : '–'}</div><div className="s">matches used to check the fixes</div></div>
       </div>
 
-      {checks.length > 0 && (
-        <div className="card" style={{ marginTop: 12 }}>
-          <b>Old formula vs new formula, same squads, no Gemini</b>
-          <div className="sub">Across the {checks.length} matches: a team picked from the old base scored {sum('v1')} points in total, from the new base {sum('v2')}. Three matches cannot settle it; the {f ? f.matches.toLocaleString() : ''}-match test below does.</div>
-        </div>
-      )}
-
-      <h2>How the analysis works</h2>
-      <div className="card">
+      <details className="card fold">
+        <summary>How the analysis works</summary>
         <ol className="bt-notes" style={{ lineHeight: 1.65 }}>
           <li><b>Pick a finished match</b> and rebuild the situation before the toss: the real XI (public at the toss), each player's history from <b>earlier matches only</b>, and no web search at all, so nothing about the result can leak in.</li>
           <li><b>Run the exact production logic</b>: the history base, Gemini's conditions adjustment, the exact search for the best valid XI, and the captain choice.</li>
@@ -127,7 +120,7 @@ export default function Backtests() {
           <li><b>Test every fix on many more matches</b>: an idea only counts if it holds across {f ? f.matches.toLocaleString() : 'about 1,200'} past matches (no AI involved, only earlier data for each match), with a 95% confidence range, and then in two separate halves of the year.</li>
         </ol>
         <p className="sub" style={{ marginBottom: 0 }}>Reading the numbers: team points include the captain's 2× and vice-captain's 1.5×. “Best possible” is the highest-scoring valid XI chosen with perfect hindsight, so nothing can reach 100%. One match is mostly luck; patterns only matter when they repeat.</p>
-      </div>
+      </details>
 
       <h2>Matches already played</h2>
       {d.matches.map((versions: Rec[]) => <MatchCard key={versions[0].ref} versions={versions} />)}
@@ -138,7 +131,7 @@ export default function Backtests() {
         return (
           <>
             <h2>Patterns across these matches</h2>
-            <p className="sub" style={{ marginTop: 0 }}>Average points we predicted too high (+) or too low (−) per player, by role. A pattern that points the same way in every match deserves a look; one that flips does not.</p>
+            <p className="sub" style={{ marginTop: 0 }}>Points we guessed too high (+) or too low (−) per player, by role.</p>
             <div className="card flat" style={{ overflowX: 'auto' }}>
               <table className="t">
                 <thead><tr><th>Role</th>{latest.map((r: Rec) => <th key={r.ref} className="r">{r.title.replace(' v ', ' v ')}</th>)}<th>Reads as</th></tr></thead>
@@ -157,7 +150,7 @@ export default function Backtests() {
                 </tbody>
               </table>
             </div>
-            <p className="sub">Bowlers were over-predicted in all three matches, so I checked it against {f ? f.playerRows.toLocaleString() : 'thousands of'} predictions. Across all of them the bias for bowler-like players is only {f?.biasByRole?.v1?.find((g: any) => g.role === 'bowler-like')?.bias ?? '…'} points, so it is match-day luck plus the "pick the top of the list" effect, not a flaw to patch (see below).</p>
+            <details className="fold-sm"><summary>Why bowlers are over-predicted</summary><p className="sub">Bowlers were over-predicted in all three matches, so I checked it against {f ? f.playerRows.toLocaleString() : 'thousands of'} predictions. Across all of them the bias for bowler-like players is only {f?.biasByRole?.v1?.find((g: any) => g.role === 'bowler-like')?.bias ?? '…'} points, so it is match-day luck plus the "pick the top of the list" effect, not a flaw to patch (see below).</p></details>
           </>
         );
       })()}
@@ -168,8 +161,7 @@ export default function Backtests() {
           {d.changes.map((c: any) => (
             <div key={c.title} className="card change">
               <div className="row sb" style={{ alignItems: 'flex-start', gap: 10 }}><b>{c.title}</b><span className={`pill ${status(c.status)}`}>{c.status}</span></div>
-              <div className="ch-k">The evidence</div><div>{c.why}</div>
-              <div className="ch-k">What changed</div><div>{c.how}</div>
+              <details className="fold-sm"><summary>Evidence and what changed</summary><div className="ch-k">The evidence</div><div>{c.why}</div><div className="ch-k">What changed</div><div>{c.how}</div></details>
             </div>
           ))}
         </>
@@ -178,7 +170,7 @@ export default function Backtests() {
       {f && (
         <>
           <h2>Every method I tried ({f.matches.toLocaleString()} matches)</h2>
-          <p className="sub" style={{ marginTop: 0 }}>Each prediction used only matches played before that day. “Top-11 points” is what the 11 highest-ranked players actually scored (the best possible is {f.oracleTop11}). The ± range is a 95% confidence range: if it includes 0, the difference could be luck.</p>
+          <details className="fold-sm"><summary>How to read this table</summary><p className="sub">Each prediction used only matches played before that day. “Top-11 points” is what the 11 highest-ranked players actually scored (the best possible is {f.oracleTop11}). The ± range is a 95% confidence range: if it includes 0, the difference could be luck.</p></details>
           <div className="card flat" style={{ overflowX: 'auto' }}>
             <table className="t">
               <thead><tr><th>Method</th><th className="r">Avg miss</th><th className="r">Top-11 points</th><th className="r">vs current</th></tr></thead>

@@ -5,7 +5,7 @@ export const DEFAULT_RULES: Rules = {
   team_size: 11,
   role_min: { WK: 1, BAT: 3, AR: 1, BOWL: 3 },
   role_max: { WK: 4, BAT: 6, AR: 4, BOWL: 6 },
-  max_per_team: 7,
+  max_per_team: 10,
   captain_mult: 2,
   vc_mult: 1.5,
 };
