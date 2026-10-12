@@ -12,9 +12,13 @@ export const GET = handle(async (req: Request) => {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) throw new HttpError(500, 'Supabase is not configured.');
   const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
-  const res = await fetch('https://cricsheet.org/downloads/recently_added_7_json.zip', { cache: 'no-store' });
+  const res = await fetch('https://cricsheet.org/downloads/recently_added_7_json.zip', { cache: 'no-store', headers: { 'user-agent': 'match-day-optimizer/1.0 (fantasy cricket research; contact via GitHub)' } });
   if (!res.ok) throw new HttpError(502, `Cricsheet download failed (${res.status}).`);
-  const stats = await ingestZip(Buffer.from(await res.arrayBuffer()), { since: '2018-01-01', sb });
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length < 4 || buf.toString('latin1', 0, 2) !== 'PK') {
+    throw new HttpError(502, `Cricsheet returned ${res.status} ${res.headers.get('content-type') ?? ''} (${buf.length} bytes), not a zip file. Starts with: ${buf.toString('utf8', 0, 120).replace(/\s+/g, ' ')}`);
+  }
+  const stats = await ingestZip(buf, { since: '2018-01-01', sb });
 
   let aliases = 0;
   const names = await fetch('https://cricsheet.org/register/names.csv', { cache: 'no-store' });
