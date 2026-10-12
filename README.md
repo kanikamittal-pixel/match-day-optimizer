@@ -39,6 +39,12 @@ Push to GitHub, import in Vercel, add the same variables, deploy. Routes that ca
 
 Ideas in this section were borrowed from two public repos, RK0297/DREAM11-TEAM-PREDICTOR (created 4 May 2025, last updated 4 Aug 2025, so it predates the August 2025 change) and Janu-Chaudhary/Predict-11 (created 1 Dec 2025; its scoring research was rewritten on 1 Oct 2026). No code was copied (neither has a licence file); the logic was re-implemented.
 
+## Dashboard and the short journey
+
+- **Dashboard (home).** A hero card for the next T20/ODI with a countdown and one **Build my team** button; tiles for teams built, matches waiting for results, fantasy-history size and freshness, and the active scoring version; a searchable match list grouped by day with Upcoming / Today / Needs result / All filters. On wide screens it gets a left sidebar and a "history through …" badge in the top bar, in the style of the Predict-11 site.
+- **One table instead of three steps.** On a match, upload the Dream11 screenshot and the app reads every player and role; the players Dream11 lists under "Played Last Match" are pre-ticked as the probable XI (only when a side's list is a usable size). Tick or untick right in the list, then press **Build my team**: it saves the squad, reads the pitch, pulls fantasy history, predicts and builds in one go. Credits are optional and hidden unless you add them. **Find announced XI** ticks the announced XI when it can be found.
+- **Player panel.** Tapping a player opens a panel (a side panel on desktop) with expected points, how the number was built, history, the reason, and the captain / swap / lock / exclude actions.
+
 ## How a match flows
 
 1. **Home**: today's/upcoming matches from CricketData (cached 30 min), a banner for matches awaiting results, and the day's API hit count.

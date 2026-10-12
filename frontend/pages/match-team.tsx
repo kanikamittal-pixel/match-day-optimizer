@@ -260,8 +260,13 @@ export default function TeamPage() {
       {/* Player actions */}
       {sheet?.type === 'player' && sel && (
         <Sheet onClose={() => setSheet(null)}>
-          <b style={{ fontSize: 17 }}>{sel.name}</b>
-          <p className="sub">{sel.role} · {sel.team} · {sel.xp} xP · {cr(sel.credit)}</p>
+          <div className="row sb"><b style={{ fontSize: 18 }}>{sel.name}</b><span className="num" style={{ fontSize: 26 }}>{sel.xp}</span></div>
+          <p className="sub" style={{ margin: '2px 0 8px' }}>{sel.role} · {sel.team} · expected points · {cr(sel.credit)}</p>
+          <div className="pinfo">
+            {sel.parts && <div><span className="k">How it was built</span>{sel.parts}</div>}
+            <div><span className="k">History</span>{sel.hist}</div>
+            {sel.reason && <div><span className="k">Why</span>{sel.reason}</div>}
+          </div>
           <div className="stack">
             <button className="btn block" disabled={sel.key === view.fin.captain} onClick={() => preview({ kind: 'captain', from: view.fin.captain, to: sel.key })}>Make captain (2x)</button>
             <button className="btn block" disabled={sel.key === view.fin.vc} onClick={() => preview({ kind: 'vice', from: view.fin.vc, to: sel.key })}>Make vice-captain (1.5x)</button>

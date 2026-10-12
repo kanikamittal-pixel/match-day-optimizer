@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 const Icon = ({ d }: { d: string }) => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -10,6 +11,15 @@ const Icon = ({ d }: { d: string }) => (
 
 export default function Nav() {
   const path = usePathname();
+  const [fresh, setFresh] = useState<string | null>(null);
+  useEffect(() => {
+    if (path === '/login') return;
+    try { const c = sessionStorage.getItem('md-fresh'); if (c) setFresh(c); } catch { /* storage unavailable */ }
+    fetch('/api/status').then((r) => (r.ok ? r.json() : null)).then((j) => {
+      const t = j?.history?.latest ? `History through ${new Date(j.history.latest).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : null;
+      if (t) { setFresh(t); try { sessionStorage.setItem('md-fresh', t); } catch { /* ignore */ } }
+    }).catch(() => {});
+  }, [path]);
   if (path === '/login') return null;
   const items: [string, string, string][] = [
     ['/', 'Matches', 'M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'],
@@ -22,7 +32,7 @@ export default function Nav() {
       <div className="topbar">
         <div className="in">
           <Link href="/" className="brand">Match<b>Day</b></Link>
-          <span className="sub" style={{ marginLeft: 'auto' }}>Fantasy cricket</span>
+          <span className="fresh" style={{ marginLeft: 'auto' }}>{fresh ? <><i /> {fresh}</> : 'Fantasy cricket'}</span>
         </div>
       </div>
       <nav className="tabbar">

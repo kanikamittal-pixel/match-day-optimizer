@@ -1,0 +1,23 @@
+/** Friendly time helpers for the dashboard (pure, so they can be tested). */
+export function countdown(startIso: string | null, now = Date.now()): string {
+  if (!startIso) return 'Start time TBC';
+  const ms = new Date(startIso).getTime() - now;
+  if (!Number.isFinite(ms)) return 'Start time TBC';
+  if (ms <= 0) return 'Started';
+  const mins = Math.floor(ms / 60000);
+  const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60;
+  if (d >= 1) return `Starts in ${d}d ${h}h`;
+  if (h >= 1) return `Starts in ${h}h ${m}m`;
+  return `Starts in ${m} min`;
+}
+
+/** "Today", "Tomorrow" or a short date, judged in the viewer's local time. */
+export function dayLabel(iso: string | null, now = new Date()): string {
+  if (!iso) return 'Date TBC';
+  const d = new Date(iso);
+  const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  const tomorrow = new Date(now.getTime() + 86400000);
+  if (sameDay(d, now)) return 'Today';
+  if (sameDay(d, tomorrow)) return 'Tomorrow';
+  return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+}
