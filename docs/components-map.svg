@@ -44,9 +44,9 @@
 <path d="M320 345 L320 980 L453 980" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
 <path d="M667 665 L681 665 L681 950 L685 950 L685 980" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
 <path d="M667 800 L697 800 L697 520 L923 520 L923 490" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
-<path d="M800 790 L800 930" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
+<path d="M800 790 L800 918" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
 <path d="M667 980 L693 980" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
-<path d="M800 1130 L800 1030 L800 1030" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
+<path d="M800 1130 L800 1042 L800 1042" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
 <path d="M907 980 L927 980 L927 465 L933 465" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
 <path d="M1040 550 L1040 930" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
 <path d="M1147 980 L1167 980 L1167 565 L1250 565 L1250 545" fill="none" stroke="#666" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
@@ -108,9 +108,12 @@
 <rect x="453.0" y="930.0" width="214" height="100" rx="10" fill="#fbe4ee" stroke="#d6457f" stroke-width="1.8"/>
 <text x="560.0" y="956.0" text-anchor="middle" font-size="14.5" font-weight="800" fill="#111">Reads credit screenshots</text>
 <text x="560.0" y="978.0" text-anchor="middle" font-size="13" fill="#333">Optional</text>
-<rect x="693.0" y="930.0" width="214" height="100" rx="10" fill="#fbe4ee" stroke="#d6457f" stroke-width="1.8"/>
-<text x="800.0" y="956.0" text-anchor="middle" font-size="14.5" font-weight="800" fill="#111">Expected points</text>
-<text x="800.0" y="978.0" text-anchor="middle" font-size="13" fill="#333">From form + pitch conditions</text>
+<rect x="693.0" y="917.5" width="214" height="125" rx="10" fill="#fbe4ee" stroke="#d6457f" stroke-width="1.8"/>
+<text x="800.0" y="943.5" text-anchor="middle" font-size="14.5" font-weight="800" fill="#111">Expected points</text>
+<text x="800.0" y="965.5" text-anchor="middle" font-size="13" fill="#333">Base (code): 50% career form</text>
+<text x="800.0" y="982.5" text-anchor="middle" font-size="13" fill="#333">+ 50% recent form (Cricsheet)</text>
+<text x="800.0" y="999.5" text-anchor="middle" font-size="13" fill="#333">+ Gemini adjustment for pitch,</text>
+<text x="800.0" y="1016.5" text-anchor="middle" font-size="13" fill="#333">weather, team news (capped)</text>
 <rect x="933.0" y="930.0" width="214" height="100" rx="10" fill="#fbe4ee" stroke="#d6457f" stroke-width="1.8"/>
 <text x="1040.0" y="956.0" text-anchor="middle" font-size="14.5" font-weight="800" fill="#111">Picks captain &amp; vice</text>
 <text x="1040.0" y="978.0" text-anchor="middle" font-size="13" fill="#333">One-line reason per pick</text>
@@ -119,7 +122,8 @@
 <text x="1760.0" y="978.0" text-anchor="middle" font-size="13" fill="#333">Suggests new weights</text>
 <rect x="693.0" y="1130.0" width="214" height="100" rx="10" fill="#dff5e6" stroke="#3aa564" stroke-width="1.8"/>
 <text x="800.0" y="1156.0" text-anchor="middle" font-size="14.5" font-weight="800" fill="#111">Loads memory</text>
-<text x="800.0" y="1178.0" text-anchor="middle" font-size="13" fill="#333">Weights and past errors</text>
+<text x="800.0" y="1178.0" text-anchor="middle" font-size="13" fill="#333">Scoring weights, Aryan&#x27;s</text>
+<text x="800.0" y="1195.0" text-anchor="middle" font-size="13" fill="#333">playbook rules, past errors</text>
 <rect x="1173.0" y="1130.0" width="214" height="100" rx="10" fill="#dff5e6" stroke="#3aa564" stroke-width="1.8"/>
 <text x="1280.0" y="1156.0" text-anchor="middle" font-size="14.5" font-weight="800" fill="#111">Saves prediction</text>
 <text x="1280.0" y="1178.0" text-anchor="middle" font-size="13" fill="#333">With time and reasons</text>
