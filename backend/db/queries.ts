@@ -6,17 +6,21 @@ import type { Candidate, Rules, MatchXI, Role } from '@/shared/types';
 import { HttpError } from '@/backend/http';
 
 /** First-run seeding: rules row and approved weights v1. Rules are never hard-coded elsewhere. */
+let seeded = false;
 export async function ensureSeed(sb: SupabaseClient) {
-  const { data: r } = await sb.from('rules_config').select('id').eq('id', 1).maybeSingle();
-  if (!r) must(await sb.from('rules_config').insert({ id: 1, ...DEFAULT_RULES }), 'seed rules');
-  const { data: w } = await sb.from('scoring_weights').select('version').limit(1);
-  if (!w?.length)
-    must(await sb.from('scoring_weights').insert({ version: 1, weights: DEFAULT_WEIGHTS, note: 'Initial Dream11 T20 weights', active: true }), 'seed weights');
+  if (seeded) return;
+  // three independent reads in parallel: this runs once per server instance, so keep the cold start short
+  const [r, w, v2] = await Promise.all([
+    sb.from('rules_config').select('id').eq('id', 1).maybeSingle(),
+    sb.from('scoring_weights').select('version').limit(1),
+    sb.from('scoring_weights').select('version').eq('version', 2).maybeSingle(),
+  ]);
+  if (!r.data) must(await sb.from('rules_config').insert({ id: 1, ...DEFAULT_RULES }), 'seed rules');
+  if (!w.data?.length) must(await sb.from('scoring_weights').insert({ version: 1, weights: DEFAULT_WEIGHTS, note: 'Initial Dream11 T20 weights', active: true }), 'seed weights');
   // v2 = the current Dream11 T20 table (from the Predict-11 research). Seeded INACTIVE: Aryan activates it in Settings
   // after checking the values against the points-system page in the Dream11 app.
-  const { data: v2 } = await sb.from('scoring_weights').select('version').eq('version', 2).maybeSingle();
-  if (!v2)
-    must(await sb.from('scoring_weights').insert({ version: 2, weights: flattenRules(), note: 'Current Dream11 T20 table (boundary +4, six +6, wicket +30, dot ball +1, SR bands). Not active until you approve it.', active: false }), 'seed weights v2');
+  if (!v2.data) must(await sb.from('scoring_weights').insert({ version: 2, weights: flattenRules(), note: 'Current Dream11 T20 table (boundary +4, six +6, wicket +30, dot ball +1, SR bands). Not active until you approve it.', active: false }), 'seed weights v2');
+  seeded = true;
 }
 
 export async function loadRules(sb: SupabaseClient): Promise<Rules> {

@@ -2,7 +2,8 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/frontend/api';
-import { Banner, Spinner, short } from '@/frontend/components/ui';
+import { Banner, short } from '@/frontend/components/ui';
+import Sparkline from '@/frontend/components/Sparkline';
 import { countdown, dayLabel } from '@/shared/when';
 
 interface M { id: string; name: string; team_a: string; team_b: string; venue: string | null; format: string; starts_at: string | null; status: string | null; phase: 'completed' | 'live' | 'upcoming'; has_team: boolean; team_status: string | null; results_in: boolean }
@@ -21,11 +22,23 @@ export default function Dashboard() {
   const [form, setForm] = useState({ team_a: '', team_b: '', venue: '', format: 'T20' });
   const [, tick] = useState(0);
 
-  const load = (refresh = false) => api(`/api/matches${refresh ? '?refresh=1' : ''}`).then(setData).catch((e) => setErr(e.message));
-  useEffect(() => { load(); api('/api/status').then(setStatus).catch(() => {}); const t = setInterval(() => tick((n) => n + 1), 60000); return () => clearInterval(t); }, []);
+  const [syncing, setSyncing] = useState(false);
+  const [watch, setWatch] = useState<{ teams: { team: string; players: { player: string; n: number; recent: number[]; mean: number }[] }[]; note?: string } | null>(null);
+  // Fast first paint from the database, then a background sync with the cricket APIs (nobody waits on those)
+  const sync = (refresh = false) => { setSyncing(true); return api(`/api/matches?${refresh ? 'refresh=1' : 'sync=1'}`).then(setData).catch(() => {}).finally(() => setSyncing(false)); };
+  const load = (refresh = false) => (refresh ? sync(true) : api('/api/matches').then(setData).catch((e) => setErr(e.message)));
+  useEffect(() => {
+    load().then(() => sync());
+    api('/api/status').then(setStatus).catch(() => {});
+    const t = setInterval(() => tick((n) => n + 1), 60000);
+    return () => clearInterval(t);
+  }, []);
 
   const matches = data?.matches ?? [];
   const next = useMemo(() => matches.filter((m) => m.phase !== 'completed' && !m.results_in).sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)))[0], [matches]);
+
+  const nextId = next?.id;
+  useEffect(() => { if (nextId) api(`/api/dashboard/watch?match=${encodeURIComponent(nextId)}`).then(setWatch).catch(() => {}); }, [nextId]);
 
   const shown = useMemo(() => {
     const now = new Date();
@@ -47,19 +60,18 @@ export default function Dashboard() {
   }
 
   if (err && !data) return <Banner kind="bad">{err}</Banner>;
-  if (!data) return <p className="sub" style={{ marginTop: 30 }}><Spinner /> Loading your dashboard…</p>;
+  if (!data) return (
+    <div className="dash" style={{ marginTop: 14 }}>
+      <div className="hero skel" style={{ minHeight: 230 }} />
+      <div className="tiles">{[0, 1, 2, 3].map((i) => <div key={i} className="tile skel" style={{ minHeight: 96 }} />)}</div>
+    </div>
+  );
 
   const built = matches.filter((m) => m.has_team).length;
   const awaiting = data.awaiting.length;
 
   return (
     <>
-      {awaiting > 0 && (
-        <div className="banner warn" style={{ marginTop: 14 }}>
-          <b>{awaiting} match{awaiting === 1 ? '' : 'es'} waiting for results</b>
-          {data.awaiting.map((a) => <Link key={a.id} href={`/match/${a.id}/result?fetch=1`} style={{ display: 'block', marginTop: 6, textDecoration: 'underline' }}>{a.name}: fetch the result</Link>)}
-        </div>
-      )}
       {data.apiNote && <Banner kind="warn">{data.apiNote}</Banner>}
       {err && <Banner kind="bad">{err}</Banner>}
 
@@ -99,8 +111,49 @@ export default function Dashboard() {
         </section>
       </div>
 
+      <div className="dash2">
+        {awaiting > 0 && (
+          <section className="panel todo">
+            <div className="ph"><b>To do</b><span className="pill warn">{awaiting}</span></div>
+            {data.awaiting.map((a) => (
+              <Link key={a.id} href={`/match/${a.id}/result?fetch=1`} className="todo-row">
+                <div className="grow"><b>Fetch the result</b><div className="sub">{a.name}</div></div><span className="btn sm">Fetch →</span>
+              </Link>
+            ))}
+          </section>
+        )}
+        {watch && watch.teams.some((t) => t.players.length) && (
+          <section className="panel watch">
+            <div className="ph"><b>Players to watch</b><span className="sub">average of last 10 T20s</span></div>
+            <div className="watch-cols">
+              {watch.teams.map((t) => (
+                <div key={t.team}>
+                  <div className="wteam"><span className="d-code sm">{short(t.team)}</span> {t.team}</div>
+                  {t.players.length === 0 && <p className="sub" style={{ margin: '6px 0 0' }}>No T20 history on record for this side.</p>}
+                  {t.players.map((p) => (
+                    <div key={p.player} className="wrow">
+                      <div className="grow"><div className="wname">{p.player}</div><div className="sub">{p.n} T20s in the last year</div></div>
+                      <Sparkline values={p.recent} />
+                      <div className="wmean num">{p.mean}</div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+        <section className="panel how">
+          <div className="ph"><b>How it works</b><span className="sub">about 2 minutes</span></div>
+          <div className="steps3">
+            <div><span>1</span><b>Upload</b><p>Screenshot your Dream11 player list. I read every player and the probable XI.</p></div>
+            <div><span>2</span><b>Check</b><p>Tick or untick the XI in one table. Find the announced XI when it is out.</p></div>
+            <div><span>3</span><b>Build</b><p>One tap: pitch, history and a valid XI with captain, ready to copy into Dream11.</p></div>
+          </div>
+        </section>
+      </div>
+
       <div className="row sb" style={{ marginTop: 22 }}>
-        <h2 style={{ margin: 0 }}>Matches</h2>
+        <h2 style={{ margin: 0 }}>Matches {syncing && <span className="sub" style={{ textTransform: 'none', letterSpacing: 0, marginLeft: 8 }}>updating fixtures…</span>}</h2>
         <button className="btn sm ghost" onClick={() => load(true)}>↻ Refresh</button>
       </div>
       <input className="search" type="text" placeholder="Search a team or ground…" value={q} onChange={(e) => setQ(e.target.value)} />

@@ -1,7 +1,7 @@
 /**
  * One-off / periodic import of Cricsheet T20 ball-by-ball data into Supabase as Dream11 points per player-match.
  *
- *   npm run ingest:cricsheet                         # all T20s since 2018 (downloads ~23 MB from cricsheet.org)
+ *   npm run ingest:cricsheet                         # T20 internationals + the major T20 leagues since 2018 (~50 MB from cricsheet.org)
  *   npm run ingest:cricsheet -- --zip recently_added_7_json.zip   # keep it fresh: the small 7-day file
  *   npm run ingest:cricsheet -- --since 2022-01-01 --dry          # parse only, write nothing
  *
@@ -27,10 +27,13 @@ function loadEnv() {
   }
 }
 
+// Cricsheet's `t20s` file holds T20 INTERNATIONALS only. Leagues are separate files.
+const DEFAULT_ZIPS = ['t20s', 'ipl', 'bbl', 'wbb', 'psl', 'cpl', 'sat', 'ilt', 'lpl', 'bpl', 'mlc', 'ntb', 'msl', 'wpl', 'sma'];
+
 async function getZip(src: string): Promise<Buffer> {
   if (/^https?:/.test(src)) return downloadTo(src);
   if (existsSync(src)) return readFileSync(src);
-  return downloadTo(`https://cricsheet.org/downloads/${src}`);
+  return downloadTo(src.endsWith('.zip') ? `https://cricsheet.org/downloads/${src}` : `https://cricsheet.org/downloads/${src}_json.zip`);
 }
 async function downloadTo(url: string): Promise<Buffer> {
   console.log(`Downloading ${url} ...`);
@@ -44,21 +47,28 @@ async function downloadTo(url: string): Promise<Buffer> {
 
 async function main() {
   loadEnv();
-  const src = arg('zip', 'https://cricsheet.org/downloads/t20s_json.zip')!;
+  const sources = arg('zip', DEFAULT_ZIPS.join(','))!.split(',').map((x) => x.trim()).filter(Boolean);
   const since = arg('since', '2018-01-01')!;
   const limit = Number(arg('limit', '0'));
   const dry = flag('dry');
   const sb = dry ? null : createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
+  console.log(`Keeping T20s played on/after ${since}${dry ? ' (dry run)' : ''} from: ${sources.join(', ')}`);
 
-  const zip = await getZip(src);
-  console.log(`Keeping T20s played on/after ${since}${dry ? ' (dry run)' : ''}`);
-  const stats = await ingestZip(zip, { since, sb, limit, onProgress: (m, r) => process.stdout.write(`\r  ${m} matches, ${r} rows`) });
-  console.log(`\nDone: ${stats.matches} matches parsed, ${stats.rows} player-match rows ${dry ? 'would be written' : 'written'}; ${stats.skipped} skipped`, stats.skips);
+  const idByName = new Map<string, Set<string>>();
+  let matches = 0, rows = 0;
+  for (const src of sources) {
+    const zip = await getZip(src);
+    const stats = await ingestZip(zip, { since, sb, limit, onProgress: (m, r) => process.stdout.write(`\r  ${src}: ${m} matches, ${r} rows`) });
+    console.log(`\r  ${src}: ${stats.matches} matches, ${stats.rows} rows ${dry ? '(not written)' : 'written'}${' '.repeat(10)}`);
+    matches += stats.matches; rows += stats.rows;
+    for (const [name, ids] of stats.idByName) { if (!idByName.has(name)) idByName.set(name, new Set()); ids.forEach((i) => idByName.get(name)!.add(i)); }
+  }
+  console.log(`Done: ${matches} matches, ${rows} player-match rows`);
 
   // Name aliases (full names for the short names Dream11 shows), from Cricsheet's register
   const res = await fetch('https://cricsheet.org/register/names.csv');
   if (res.ok) {
-    const aliases = buildAliases(await res.text(), stats.idByName);
+    const aliases = buildAliases(await res.text(), idByName);
     console.log(`${Object.keys(aliases).length} players have alternative names${dry ? '' : ' (saved)'}`);
     if (sb) await saveAliases(sb, aliases);
   } else console.warn(`Could not fetch names.csv (${res.status}); name matching will use initials only`);

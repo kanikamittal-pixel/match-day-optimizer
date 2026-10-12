@@ -88,3 +88,13 @@ export function dropSharedLinks(link: Map<string, string>): { kept: Map<string, 
   }
   return { kept, dropped };
 }
+
+/**
+ * Fixture feeds say "Sydney Sixers Women"; Cricsheet files the same side as "Sydney Sixers" with gender = female.
+ * Returns the names to look up and which gender's matches to read.
+ */
+export function teamLookup(team: string): { names: string[]; gender: 'male' | 'female' } {
+  const women = /\bwomen('s)?\b|\bW\b\s*$/i.test(team);
+  const base = team.replace(/\s+(women('s)?|w)\s*$/i, '').trim();
+  return { names: [...new Set([team, base])], gender: women ? 'female' : 'male' };
+}

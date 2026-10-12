@@ -242,3 +242,30 @@ details.cond summary::-webkit-details-marker { display: none; }
 .pinfo > div { padding: 8px 0; border-top: 1px solid var(--line); font-size: 13.5px; color: #d6d8de; }
 .pinfo > div:first-child { border-top: 0; }
 .pinfo .k { display: block; font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); margin-bottom: 2px; }
+
+/* ---- dashboard panels ---- */
+.skel { background: linear-gradient(90deg, #17181b 25%, #202226 37%, #17181b 63%); background-size: 400% 100%; animation: sk 1.3s ease infinite; border: 1px solid var(--line); border-radius: 16px; }
+@keyframes sk { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+.dash2 { display: grid; gap: 12px; margin-top: 12px; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+.panel .ph { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.panel .ph b { font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--mute); }
+.todo { border-color: color-mix(in srgb, var(--amber) 45%, var(--line)); background: linear-gradient(180deg, color-mix(in srgb, var(--amber) 8%, var(--card)), var(--card)); }
+.todo-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.todo-row:first-of-type { border-top: 0; }
+.watch-cols { display: grid; gap: 14px; }
+.wteam { display: flex; align-items: center; gap: 8px; font-weight: 800; margin-bottom: 4px; }
+.wrow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.wname { font-weight: 700; }
+.wmean { width: 46px; text-align: right; font-size: 20px; }
+.steps3 { display: grid; gap: 10px; }
+.steps3 > div { display: grid; grid-template-columns: 30px 1fr; gap: 2px 10px; }
+.steps3 span { grid-row: span 2; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; font-weight: 900; font-size: 13px; }
+.steps3 p { margin: 0; color: var(--mute); font-size: 13px; }
+@media (min-width: 960px) {
+  .dash2 { grid-template-columns: 1.35fr 1fr; align-items: start; }
+  .dash2 .watch { grid-column: 1; grid-row: 1 / span 2; }
+  .dash2 .todo, .dash2 .how { grid-column: 2; }
+  .watch-cols { grid-template-columns: 1fr 1fr; }
+  .steps3 { grid-template-columns: 1fr; }
+}

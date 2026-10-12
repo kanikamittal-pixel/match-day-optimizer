@@ -87,3 +87,14 @@ describe('dropSharedLinks', () => {
     expect(dropped).toEqual([]);
   });
 });
+
+import { teamLookup } from '../shared/names';
+
+describe('teamLookup', () => {
+  it('maps women\'s fixture names to Cricsheet names and gender', () => {
+    expect(teamLookup('Sydney Sixers Women')).toEqual({ names: ['Sydney Sixers Women', 'Sydney Sixers'], gender: 'female' });
+    expect(teamLookup('Pakistan')).toEqual({ names: ['Pakistan'], gender: 'male' });
+    expect(teamLookup("India Women's")).toMatchObject({ gender: 'female' });
+    expect(teamLookup('Mumbai Indians').gender).toBe('male');
+  });
+});

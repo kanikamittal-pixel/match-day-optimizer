@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { blendBase, MIN_ALL, summariseForm, type FormRow, type PlayerHistory } from '@/shared/form';
-import { dropSharedLinks, matchStrictAliases } from '@/shared/names';
+import { dropSharedLinks, matchStrictAliases, teamLookup } from '@/shared/names';
 import { loadAliases } from '@/backend/services/cricsheet-ingest';
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -42,7 +42,7 @@ export async function historyFor(
   const rosters = new Map<string, string[]>();
   let tableOk = true;
   for (const team of new Set(players.map((p) => p.team))) {
-    const rows = await pageAll<{ player: string }>((a, b) => sb.from('player_match_points').select('player').ilike('team', team).gte('played_on', since).lt('played_on', day).range(a, b));
+    const rows = await pageAll<{ player: string }>((a, b) => sb.from('player_match_points').select('player').in('team', teamLookup(team).names).eq('gender', teamLookup(team).gender).gte('played_on', since).lt('played_on', day).range(a, b));
     if (rows === null) { tableOk = false; break; }
     rosters.set(team, [...new Set(rows.map((r) => r.player))]);
   }
