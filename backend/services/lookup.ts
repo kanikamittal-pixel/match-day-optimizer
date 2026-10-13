@@ -14,7 +14,21 @@ export interface AnnouncedXI {
  * No cricket API in the free tiers exposes the announced XI before the match starts, so this is the
  * only automatic route. It is never trusted blindly: the UI shows it as "verify" with source links.
  */
-export async function lookupAnnouncedXI(m: { team_a: string; team_b: string; venue: string | null; format: string | null; starts_at: string | null }): Promise<AnnouncedXI> {
+type MatchInfo = { team_a: string; team_b: string; venue: string | null; format: string | null; starts_at: string | null };
+
+/**
+ * One web search can miss an XI that is already out. From a few hours before the start, a "not announced" answer is
+ * asked once more before it is believed.
+ */
+export async function lookupAnnouncedXI(m: MatchInfo): Promise<AnnouncedXI> {
+  const first = await lookupOnce(m);
+  const soon = m.starts_at ? Math.abs(new Date(m.starts_at).getTime() - Date.now()) < 6 * 3600e3 : false;
+  if (first.announced || !soon) return first;
+  const second = await lookupOnce(m);
+  return second.announced ? second : first;
+}
+
+async function lookupOnce(m: MatchInfo): Promise<AnnouncedXI> {
   const { text, sources } = await gemini({
     grounding: true,
     prompt: `Use Google Search. Match: ${m.team_a} vs ${m.team_b}, ${m.format ?? 'T20'}, at ${m.venue ?? 'unknown venue'}, starting ${m.starts_at ?? 'soon'}.

@@ -155,3 +155,59 @@ export function uniqueCanon(entries: { team: string; name: string; canon: string
     return c;
   });
 }
+
+function editDistance(a: string, b: string): number {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+
+/**
+ * Link the names of an announced playing XI ("Chamindu Wickramasinghe") to the squad list, whose names are Dream11-style
+ * short or truncated names ("C Wickra", "S Arachch", two players called "K Mendis"). Each squad player is used once.
+ *  1. Same first initial and the same or a truncated surname (see sameShortName).
+ *  2. A name that fits several squad players is only linked when exactly that many announced names fit them (so two
+ *     announced Mendis take the two "K Mendis"); otherwise it is left for a person to decide, never guessed.
+ *  3. A spelling variant ("Moqim" for "Muqeem") is linked only if it is the clearly closest, unique surname among the
+ *     squad players left over, with the same first initial. These are reported in `guessed` so they can be checked.
+ */
+export function mapAnnounced(announced: string[], pool: { key: string; name: string }[]): { keys: string[]; unmatched: string[]; guessed: { announced: string; matched: string }[] } {
+  const keyOf = new Map<number, string>();
+  const used = new Set<string>();
+  const cands = announced.map((a) => pool.filter((p) => sameShortName(a, p.name)).map((p) => p.key));
+  const take = (i: number, key: string) => { keyOf.set(i, key); used.add(key); };
+
+  // 1 + 2, repeated until nothing changes (one link can free up the next)
+  for (let changed = true; changed; ) {
+    changed = false;
+    announced.forEach((_, i) => {
+      if (keyOf.has(i)) return;
+      const free = cands[i].filter((k) => !used.has(k));
+      if (free.length === 1) { take(i, free[0]); changed = true; return; }
+      if (free.length > 1) {
+        const same = announced.map((__, j) => j).filter((j) => !keyOf.has(j) && cands[j].filter((k) => !used.has(k)).sort().join() === free.slice().sort().join());
+        if (same.length === free.length) { same.forEach((j, n) => take(j, free[n])); changed = true; }
+      }
+    });
+  }
+
+  // 3: unique closest surname among what is left
+  const guessed: { announced: string; matched: string }[] = [];
+  announced.forEach((a, i) => {
+    if (keyOf.has(i)) return;
+    const ta = tokens(a); if (ta.length < 2) return;
+    const sa = ta[ta.length - 1];
+    const scored = pool.filter((p) => !used.has(p.key)).map((p) => {
+      const tp = tokens(p.name); const sp = tp[tp.length - 1] ?? '';
+      const ok = tp.length > 1 && tp[0][0] === ta[0][0];
+      return { p, sim: ok ? 1 - editDistance(sa, sp) / Math.max(sa.length, sp.length) : 0 };
+    }).sort((x, y) => y.sim - x.sim);
+    if (scored[0] && scored[0].sim >= 0.5 && (!scored[1] || scored[0].sim - scored[1].sim >= 0.15)) {
+      take(i, scored[0].p.key);
+      guessed.push({ announced: a, matched: scored[0].p.name });
+    }
+  });
+
+  return { keys: announced.flatMap((_, i) => (keyOf.has(i) ? [keyOf.get(i) as string] : [])), unmatched: announced.filter((_, i) => !keyOf.has(i)), guessed };
+}

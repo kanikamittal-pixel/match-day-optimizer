@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { api } from '@/frontend/api';
 import { Banner, Spinner } from './ui';
 
-type Found = { announced: boolean; note?: string; sources?: { title: string; uri: string }[]; teamA?: string[]; teamB?: string[]; impact?: string[]; unmatched?: string[] };
+type Found = { announced: boolean; note?: string; sources?: { title: string; uri: string }[]; teamA?: string[]; teamB?: string[]; impact?: string[]; unmatched?: string[]; guessed?: { announced: string; matched: string }[] };
 
 /**
  * After the toss: fetch the announced playing XI, show who in the current team is not playing, and rebuild the team for
@@ -41,6 +41,7 @@ export default function TossPanel({ matchId, teamKeys, names, onDone }: { matchI
 
   const playing = new Set([...(found?.teamA ?? []), ...(found?.teamB ?? []), ...(found?.impact ?? [])]);
   const out = found?.announced ? teamKeys.filter((k) => !playing.has(k)) : [];
+  const complete = !!found?.announced && (found.teamA?.length ?? 0) === 11 && (found.teamB?.length ?? 0) === 11; // both sides fully linked to the squad list
 
   return (
     <div className="card toss">
@@ -55,10 +56,12 @@ export default function TossPanel({ matchId, teamKeys, names, onDone }: { matchI
         <>
           <Banner kind={out.length ? 'warn' : 'ok'}>
             <b>Playing XI found.</b> {out.length ? <>Not playing from your current team: <b>{out.map((k) => names[k] ?? k).join(', ')}</b>. They will be replaced.</> : 'Everyone in your current team is playing.'}
-            {found.unmatched && found.unmatched.length > 0 && <div className="sub">Not matched to the squad list: {found.unmatched.join(', ')}.</div>}
+            {found.guessed && found.guessed.length > 0 && <div className="sub">Matched by similar spelling, please check: {found.guessed.map((g) => `${g.announced} → ${g.matched}`).join(', ')}.</div>}
+            {found.unmatched && found.unmatched.length > 0 && <div className="sub">Could not be linked to the squad list: {found.unmatched.join(', ')}.</div>}
             {found.sources && found.sources.length > 0 && <div className="sub" style={{ marginTop: 4 }}>From a web search; check it against Dream11. Sources: {found.sources.slice(0, 3).map((s, i) => <a key={i} href={s.uri} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline', marginRight: 8 }}>{s.title || 'source'}</a>)}</div>}
           </Banner>
-          <button className="btn primary block" onClick={rebuild} disabled={!!busy}>{busy ? <><Spinner /> {busy}</> : 'Rebuild my team for this XI'}</button>
+          {!complete && <Banner kind="bad">Only {found.teamA?.length ?? 0} and {found.teamB?.length ?? 0} of the 11 players per side could be linked to the squad, so I will not rebuild on a partial XI. <Link href={`/match/${matchId}`} style={{ textDecoration: 'underline' }}>Tick the XI by hand</Link>, then rebuild.</Banner>}
+          <button className="btn primary block" onClick={rebuild} disabled={!!busy || !complete}>{busy ? <><Spinner /> {busy}</> : 'Rebuild my team for this XI'}</button>
         </>
       )}
     </div>
