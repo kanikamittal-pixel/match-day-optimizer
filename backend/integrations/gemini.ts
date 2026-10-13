@@ -75,7 +75,15 @@ async function viaOpenRouter(opts: Opts, key: string): Promise<{ text: string; s
 }
 
 export async function gemini(opts: Opts): Promise<{ text: string; sources: GeminiSource[] }> {
-  if (process.env.OPENROUTER_API_KEY) return viaOpenRouter(opts, process.env.OPENROUTER_API_KEY);
+  // OpenRouter first. If it fails (outage, no credit) and a direct Google key is configured, use that instead so the app keeps working.
+  if (process.env.OPENROUTER_API_KEY) {
+    try { return await viaOpenRouter(opts, process.env.OPENROUTER_API_KEY); }
+    catch (e) { if (!process.env.GEMINI_API_KEY) throw e; console.warn('OpenRouter failed, falling back to the direct Gemini key:', e instanceof Error ? e.message.slice(0, 160) : e); }
+  }
+  return viaGoogle(opts);
+}
+
+async function viaGoogle(opts: Opts): Promise<{ text: string; sources: GeminiSource[] }> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new HttpError(500, 'GEMINI_API_KEY is not set.');
   if (opts.grounding && opts.schema) throw new Error('Grounding and responseSchema cannot be combined.');
