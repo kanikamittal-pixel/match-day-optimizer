@@ -70,13 +70,18 @@ export const GET = handle(async (req: Request) => {
   const fin = d.final as { xi: string[]; captain: string; vc: string } | null;
   const finXI = fin ? fin.xi.map(nm) : ourXI;
   const changed = !!fin && (JSON.stringify([...finXI].sort()) !== JSON.stringify([...ourXI].sort()) || nm(fin.captain) !== nm(d.recommended.captain) || nm(fin.vc) !== nm(d.recommended.vc));
+  // how each expected number was built (history base and conditions adjustment), saved when the prediction was made
+  const { data: partsRow } = await sb.from('api_cache').select('payload').eq('key', `parts:${id}`).maybeSingle();
+  const parts: Record<string, { base: number | null; adjustment: number | null }> = partsRow?.payload?.players ?? {};
   const players: RPlayer[] = res.players.map((p) => {
     const q = predFor.get(p.name);
-    return { name: q?.player_name ?? p.name, team: q?.team ?? p.team, role: q?.role ?? 'BAT', batPos: p.batPos, predicted: q ? Number(q.expected_points) : null, base: null, adjustment: null, actual: p.points, baseline: null, reason: q?.reason ?? null, played: true, inOurXI: false, inTop11: false };
+    const pt = q ? parts[q.name_key] : undefined;
+    // the batting order is only recorded for matches read from the ball-by-ball record
+    return { name: q?.player_name ?? p.name, team: q?.team ?? p.team, role: q?.role ?? 'BAT', batPos: p.batPos, batKnown: res.source.startsWith('Cricsheet'), predicted: q ? Number(q.expected_points) : null, base: pt?.base ?? null, adjustment: pt?.adjustment ?? null, actual: p.points, baseline: null, reason: q?.reason ?? null, played: true, inOurXI: false, inTop11: false };
   });
   for (const n of [...new Set([...ourXI, ...finXI])]) if (!players.some((p) => p.name === n)) { // in our team but did not play: scores 0
     const q = preds.find((p) => p.player_name === n);
-    if (q) players.push({ name: n, team: q.team, role: q.role, batPos: null, predicted: Number(q.expected_points), base: null, adjustment: null, actual: 0, baseline: null, reason: q.reason, played: false, inOurXI: false, inTop11: false });
+    if (q) players.push({ name: n, team: q.team, role: q.role, batPos: null, batKnown: false, predicted: Number(q.expected_points), base: parts[q.name_key]?.base ?? null, adjustment: parts[q.name_key]?.adjustment ?? null, actual: 0, baseline: null, reason: q.reason, played: false, inOurXI: false, inTop11: false });
   }
   const rules = await loadRules(sb);
   const pool: Candidate[] = players.filter((p) => p.played).map((p) => ({ key: p.name, name: p.name, team: p.team, role: p.role as Role, credit: 0, xp: p.actual }));

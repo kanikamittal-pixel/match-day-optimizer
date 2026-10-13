@@ -13,6 +13,7 @@ export interface RPlayer {
   baseline: number | null; // plain last-5 average
   reason: string | null;
   played: boolean; // false: in the agent's team but did not play (scores 0)
+  batKnown?: boolean; // false when the batting position was not recorded (live matches); then nothing is said about it
   inOurXI: boolean;
   inTop11: boolean;
 }
@@ -87,7 +88,7 @@ export function matchReport(players: RPlayer[], ours: Team, top: Team, baseline:
     } else bits.push(`Expected ${p.predicted}, scored ${p.actual}${p.played ? '' : ' (did not play)'}.`);
     bits.push(p.base === null ? 'No usable history.' : `History said ${r1(p.base)}.`);
     if (p.adjustment !== null && Math.abs(p.adjustment) >= 3) bits.push(`The pitch adjustment moved him ${p.adjustment > 0 ? '+' : ''}${r1(p.adjustment)}.`);
-    bits.push(p.played ? (p.batPos ? `Batted ${p.batPos}.` : 'Did not bat.') : '');
+    if (p.played && p.batKnown !== false) bits.push(p.batPos ? `Batted ${p.batPos}.` : 'Did not bat.');
     return bits.filter(Boolean).join(' ');
   };
 
@@ -103,7 +104,7 @@ export function matchReport(players: RPlayer[], ours: Team, top: Team, baseline:
     return { k, ourN: a.length, ourPts: r1(a.reduce((s, p) => s + p.actual, 0)), topN: b.length, topPts: r1(b.reduce((s, p) => s + p.actual, 0)) };
   });
   const byRole = group(ROLES, (p) => p.role).map(({ k, ...x }) => ({ role: k, ...x }));
-  const byPosition = group(BUCKETS, (p) => posBucket(p.played ? p.batPos : null)).map(({ k, ...x }) => ({ bucket: k, ...x })).filter((x) => x.ourN || x.topN);
+  const byPosition = (oursP.some((p) => p.batKnown === false) ? [] : group(BUCKETS, (p) => posBucket(p.played ? p.batPos : null))).map(({ k, ...x }) => ({ bucket: k, ...x })).filter((x) => x.ourN || x.topN);
 
   // plain-language answer to "where did it lag?"
   const lags: string[] = [];
