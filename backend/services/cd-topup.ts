@@ -3,7 +3,7 @@ import { cricket, TTL } from '@/backend/integrations/cricketdata';
 import { aggregatesFromScorecard } from '@/backend/services/scorecard';
 import { loadAliases } from '@/backend/services/cricsheet-ingest';
 import { scoreAgg, type ScoreRole } from '@/shared/scoring';
-import { matchStrictAliases, nameKey } from '@/shared/names';
+import { matchStrictAliases, nameKey, uniqueCanon } from '@/shared/names';
 
 /**
  * Cricsheet publishes with a delay. For finished T20s newer than its latest match, this fills the gap from CricketData
@@ -58,12 +58,18 @@ export async function topUpFromCricketData(sb: SupabaseClient, maxMatches = 6): 
       const { data } = await sb.from('player_match_points').select('player').eq('team', t).eq('gender', gender).gte('played_on', shift(date, -1100)).order('played_on', { ascending: false }).order('match_ref').order('team').order('name_key').limit(1500);
       roster.set(t, [...new Set((data ?? []).map((r: any) => r.player as string))]);
     }
-    const rows: any[] = [];
+    const pre: { name: string; agg: any; t: string; canon: string }[] = [];
     for (const [name, agg] of aggs) {
       const t = teamOf.get(name);
       if (!t) continue;
       const names = roster.get(t) ?? [];
       const canon = names.includes(name) ? name : matchStrictAliases(name, names, aliases) ?? name;
+      pre.push({ name, agg, t, canon });
+    }
+    const canons = uniqueCanon(pre.map((p) => ({ team: p.t, name: p.name, canon: p.canon })));
+    const rows: any[] = [];
+    for (const [i, { name, agg, t }] of pre.entries()) {
+      const canon = canons[i];
       const pos = batPos.get(name) ?? null;
       const role: ScoreRole | undefined = agg.ballsBowled >= 12 && (pos === null || pos >= 8) ? 'BOWL' : undefined;
       rows.push({ match_ref: `cd-${m.id}`, team: t, name_key: nameKey(canon), player: canon, opponent: teams.find((x) => x !== t) ?? '', played_on: date, match_type: 'T20', gender, venue: card.venue ?? null, event: String(m.name).split(',').slice(1).join(',').trim() || null, points: Math.round(scoreAgg(agg, role) * 2) / 2, bat_pos: pos });

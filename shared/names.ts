@@ -137,3 +137,21 @@ export function pairNames(read: string[], recommended: string[], extra?: (r: str
     missing: recommended.filter((c) => !used.has(c)),
   };
 }
+
+/**
+ * Two players on the same side must never end up with the same history name (it would merge two people, and a database
+ * batch with a repeated key fails). Where scorecard players clash after name matching, each keeps its own scorecard name;
+ * if those clash too, a number is added.
+ */
+export function uniqueCanon(entries: { team: string; name: string; canon: string }[]): string[] {
+  const count = new Map<string, number>();
+  for (const e of entries) count.set(`${e.team}|${nameKey(e.canon)}`, (count.get(`${e.team}|${nameKey(e.canon)}`) ?? 0) + 1);
+  const used = new Set<string>();
+  return entries.map((e) => {
+    let c = (count.get(`${e.team}|${nameKey(e.canon)}`) ?? 0) > 1 ? e.name : e.canon;
+    let n = 2;
+    while (used.has(`${e.team}|${nameKey(c)}`)) c = `${e.name} (${n++})`;
+    used.add(`${e.team}|${nameKey(c)}`);
+    return c;
+  });
+}
