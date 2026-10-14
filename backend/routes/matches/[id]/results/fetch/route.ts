@@ -2,8 +2,8 @@ import { handle, HttpError } from '@/backend/http';
 import { must, requireUser } from '@/backend/integrations/supabase';
 import { cricket, findCricketMatch, TTL } from '@/backend/integrations/cricketdata';
 import { loadCredits, loadMatch } from '@/backend/db/queries';
-import { pointsFromScorecard } from '@/backend/services/scorecard';
-import { matchName } from '@/shared/names';
+import { aggregatesFromScorecard, pointsFromScorecard } from '@/backend/services/scorecard';
+import { mapAnnounced, matchName, sameShortName } from '@/shared/names';
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -38,15 +38,25 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   const roleByKey = new Map(credits.map((c) => [c.name_key, c.role]));
   const preds = must(await sb.from('predictions').select('name_key,player_name').eq('match_id', id), 'predictions') as { name_key: string; player_name: string }[];
   const known = preds.map((p) => ({ key: p.name_key, name: p.player_name }));
+  // Link each scorecard name (full names) to our list (short Dream11 names), most exact first:
+  //  1. the spelled-out names saved when the announced XI was fetched, 2. the strict full-name matcher, 3. the old matcher.
+  const { data: namesRow } = await sb.from('api_cache').select('payload').eq('key', `names:${id}`).maybeSingle();
+  const byFull = new Map<string, string>(Object.entries((namesRow?.payload?.names ?? {}) as Record<string, string>).map(([k, n]) => [norm(n), k]));
+  const scoreNames = [...aggregatesFromScorecard(d.scorecard).keys()];
+  // two squad players with the same short name ("K Mendis" twice) cannot be told apart by the matcher: leave them for the saved names or a person
+  const twins = new Set(known.filter((a) => known.some((b) => b.key !== a.key && sameShortName(a.name, b.name))).map((a) => a.key));
+  const strict = mapAnnounced(scoreNames.filter((n) => !byFull.has(norm(n))), known.filter((k) => !twins.has(k.key)));
+  const viaStrict = new Map(strict.pairs.map((x) => [x.announced, x.key]));
+  const keyFor = (name: string): string | null => byFull.get(norm(name)) ?? viaStrict.get(name) ?? matchName(name, known.filter((k) => !twins.has(k.key)));
   const roleOf = (name: string) => {
-    const k = matchName(name, known);
+    const k = keyFor(name);
     return k ? roleByKey.get(k) : undefined;
   };
   const scored = pointsFromScorecard(d.scorecard, roleOf, { estimateDots: true });
   const points: Record<string, number> = {};
   const unmatched: string[] = [];
   for (const s of scored) {
-    const key = matchName(s.name, known);
+    const key = keyFor(s.name);
     if (key) points[key] = s.points;
     else unmatched.push(s.name);
   }
