@@ -1,6 +1,6 @@
 import { handle, HttpError } from '@/backend/http';
 import { must, requireUser } from '@/backend/integrations/supabase';
-import { cricket, TTL } from '@/backend/integrations/cricketdata';
+import { cricket, findCricketMatch, TTL } from '@/backend/integrations/cricketdata';
 import { loadCredits, loadMatch } from '@/backend/db/queries';
 import { pointsFromScorecard } from '@/backend/services/scorecard';
 import { matchName } from '@/shared/names';
@@ -17,7 +17,8 @@ async function scorecardId(sb: any, id: string, m: { team_a: string; team_b: str
     const same = (norm(x.team_a) === norm(m.team_a) && norm(x.team_b) === norm(m.team_b)) || (norm(x.team_a) === norm(m.team_b) && norm(x.team_b) === norm(m.team_a));
     return same && Math.abs(new Date(x.starts_at).getTime() - t) < 36 * 3600 * 1000;
   });
-  return hit?.id ?? null;
+  if (hit?.id) return hit.id;
+  return findCricketMatch(sb, m.team_a, m.team_b, m.starts_at); // not in our list: ask CricketData's own score list
 }
 
 /** Fetch the scorecard and estimate Dream11 points for the players on Aryan's results list. */

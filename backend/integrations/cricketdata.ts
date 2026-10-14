@@ -90,6 +90,29 @@ export async function cricket<T = any>(
   return serveStale(lastWhy || (essential ? `Daily CricketData budget used (${used.join('/')} of ${limit()} per key). Enter this data manually.` : `CricketData budget is being kept for scorecards (${used.join('/')} of ${limit()} per key used today).`));
 }
 
+const teamNorm = (t: string) => String(t ?? '').replace(/\[[^\]]*\]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/**
+ * Find CricketData's own id for a match we only know from another feed (RapidAPI or typed in), by the two team names
+ * and the date. Uses CricketData's score list (one call, cached for 30 minutes), which includes finished matches.
+ */
+export async function findCricketMatch(sb: SupabaseClient, teamA: string, teamB: string, startsAt: string | null): Promise<string | null> {
+  if (!startsAt) return null;
+  try {
+    const { data } = await cricket<any>(sb, 'cricScore', {}, 30 * 60, false, true);
+    const t = new Date(startsAt).getTime();
+    const a = teamNorm(teamA), b = teamNorm(teamB);
+    const hit = (data?.data ?? []).find((m: any) => {
+      const x = teamNorm(m.t1), y = teamNorm(m.t2);
+      const when = new Date(String(m.dateTimeGMT).endsWith('Z') ? m.dateTimeGMT : `${m.dateTimeGMT}Z`).getTime();
+      return ((x === a && y === b) || (x === b && y === a)) && Math.abs(when - t) < 36 * 3600 * 1000;
+    });
+    return hit?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function formatOf(matchType?: string): 'T20' | 'ODI' | 'TEST' {
   const t = (matchType ?? '').toLowerCase();
   if (t.includes('odi')) return 'ODI';
