@@ -30,8 +30,8 @@ export default function Results() {
       const list = (current ?? d).players;
       const missing = list.filter((p: any) => !(p.key in r.points)).length;
       setNote({
-        kind: r.final && !missing ? 'ok' : 'warn',
-        text: `Fetched ${r.matched} of ${list.length} players from the scorecard${r.final ? '' : ' (match not finished yet, so these are provisional)'}. These are estimates from the scoring weights, so Dream11's official numbers can differ slightly. ${missing ? `${missing} player(s) weren’t in the scorecard (didn’t bat, bowl or field, or the name didn’t match): enter them by hand. ` : ''}Check, then save.`,
+        kind: r.final && !missing && r.source !== 'web' ? 'ok' : 'warn',
+        text: `${r.source === 'web' ? 'No cricket API had this match, so an AI read a public scorecard from the web: please check these numbers against the scorecard. ' : ''}Fetched ${r.matched} of ${list.length} players from the scorecard${r.final ? '' : ' (match not finished yet, so these are provisional)'}. These are estimates from the scoring weights, so Dream11's official numbers can differ slightly. ${missing ? `${missing} player(s) weren’t in the scorecard (didn’t bat, bowl or field, or the name didn’t match): enter them by hand. ` : ''}Check, then save.`,
       });
     } catch (e: any) { setErr(e.message); }
     setFetching(false);

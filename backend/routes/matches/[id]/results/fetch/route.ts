@@ -3,6 +3,7 @@ import { must, requireUser } from '@/backend/integrations/supabase';
 import { cricket, findCricketMatch, TTL } from '@/backend/integrations/cricketdata';
 import { loadCredits, loadMatch } from '@/backend/db/queries';
 import { aggregatesFromScorecard, pointsFromScorecard } from '@/backend/services/scorecard';
+import { pointsFromWeb } from '@/backend/services/webscorecard';
 import { mapAnnounced, matchName, sameShortName } from '@/shared/names';
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -28,7 +29,18 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   const m = await loadMatch(sb, id);
   if (m.starts_at && new Date(m.starts_at).getTime() > Date.now()) throw new HttpError(409, 'This match has not started yet, so there is no result to fetch. Come back once it has started.');
   const cid = await scorecardId(sb, id, m);
-  if (!cid) throw new HttpError(404, 'No scorecard source found for this match, so results can’t be fetched. Enter the points by hand.', { manual: true });
+  if (!cid) {
+    // No cricket API has this match: read a public scorecard instead, clearly labelled so Aryan checks it
+    const credits0 = await loadCredits(sb, id);
+    const preds0 = must(await sb.from('predictions').select('name_key,player_name,role').eq('match_id', id), 'predictions') as { name_key: string; player_name: string; role: string }[];
+    try {
+      const { data: nr } = await sb.from('api_cache').select('payload').eq('key', `names:${id}`).maybeSingle();
+      const fullName = (nr?.payload?.names ?? {}) as Record<string, string>; // spelled-out names saved with the announced XI
+      const web = await pointsFromWeb(m, preds0.map((p) => ({ key: p.name_key, name: fullName[p.name_key] ?? credits0.find((c) => c.name_key === p.name_key)?.name ?? p.player_name, role: p.role })));
+      if (web.matched >= 8) return { points: web.points, matched: web.matched, unmatched: web.dropped, final: web.final, status: web.status, source: 'web', sources: web.sources };
+    } catch { /* fall through to manual entry */ }
+    throw new HttpError(404, 'No scorecard source found for this match (and no public scorecard could be read), so results can’t be fetched. Enter the points by hand.', { manual: true });
+  }
 
   const sc = await cricket<any>(sb, 'match_scorecard', { id: cid }, TTL.scorecard, false, true);
   const d = sc.data.data ?? {};
@@ -47,7 +59,14 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   const twins = new Set(known.filter((a) => known.some((b) => b.key !== a.key && sameShortName(a.name, b.name))).map((a) => a.key));
   const strict = mapAnnounced(scoreNames.filter((n) => !byFull.has(norm(n))), known.filter((k) => !twins.has(k.key)));
   const viaStrict = new Map(strict.pairs.map((x) => [x.announced, x.key]));
-  const keyFor = (name: string): string | null => byFull.get(norm(name)) ?? viaStrict.get(name) ?? matchName(name, known.filter((k) => !twins.has(k.key)));
+  // a saved full name that is part of a longer scorecard name ("Mohammad Imran" in "Mohammad Imran Randhawa"), when only one fits
+  const words = (n: string) => n.toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter(Boolean);
+  const viaSubset = (name: string): string | null => {
+    const nw = words(name);
+    const hits = Object.entries((namesRow?.payload?.names ?? {}) as Record<string, string>).filter(([, full]) => { const fw = words(full); return fw.length >= 2 && fw.every((w) => nw.includes(w)); });
+    return hits.length === 1 ? hits[0][0] : null;
+  };
+  const keyFor = (name: string): string | null => byFull.get(norm(name)) ?? viaSubset(name) ?? viaStrict.get(name) ?? matchName(name, known.filter((k) => !twins.has(k.key)));
   const roleOf = (name: string) => {
     const k = keyFor(name);
     return k ? roleByKey.get(k) : undefined;
@@ -60,5 +79,5 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
     if (key) points[key] = s.points;
     else unmatched.push(s.name);
   }
-  return { points, matched: Object.keys(points).length, unmatched, final: !!d.matchEnded, status: d.status ?? null };
+  return { points, matched: Object.keys(points).length, unmatched, final: !!d.matchEnded, status: d.status ?? null, source: 'cricketdata' };
 });
