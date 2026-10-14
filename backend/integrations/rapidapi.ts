@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { HttpError } from '@/backend/http';
+import { pickKey } from '@/shared/budget';
 
 /**
  * Second cricket data source: "Free Cricbuzz Cricket API" on RapidAPI.
@@ -10,13 +11,23 @@ import { HttpError } from '@/backend/http';
 const host = () => process.env.RAPIDAPI_CRICKET_HOST || 'free-cricbuzz-cricket-api.p.rapidapi.com';
 const monthlyLimit = () => Number(process.env.RAPIDAPI_MONTHLY_LIMIT || 90);
 const month = () => new Date().toISOString().slice(0, 7);
-const usageKey = () => `rapid:usage:${month()}`;
+/** The keys in order of use: the main key, then an optional backup key from another account (RAPIDAPI_KEY_2). */
+const keys = () => [process.env.RAPIDAPI_KEY, process.env.RAPIDAPI_KEY_2].filter((k): k is string => !!k);
+const usageKey = (i = 0) => (i === 0 ? `rapid:usage:${month()}` : `rapid:usage${i}:${month()}`); // the main key keeps its original counter
 
 export const RAPID_TTL = { schedule: 12 * 3600, live: 10 * 60 };
 
-export async function rapidUsage(sb: SupabaseClient): Promise<{ hits: number; limit: number }> {
-  const { data } = await sb.from('api_cache').select('payload').eq('key', usageKey()).maybeSingle();
-  return { hits: data?.payload?.hits ?? 0, limit: monthlyLimit() };
+async function hitsFor(sb: SupabaseClient, i: number): Promise<number> {
+  const { data } = await sb.from('api_cache').select('payload').eq('key', usageKey(i)).maybeSingle();
+  return data?.payload?.hits ?? 0;
+}
+const saveHits = (sb: SupabaseClient, i: number, hits: number) => ({ key: usageKey(i), payload: { hits }, fetched_at: new Date().toISOString(), ttl_seconds: 31 * 86400 });
+
+/** Calls used this month across all keys, against the combined budget. */
+export async function rapidUsage(sb: SupabaseClient): Promise<{ hits: number; limit: number; keys: number }> {
+  const n = Math.max(1, keys().length);
+  const all = await Promise.all(Array.from({ length: n }, (_, i) => hitsFor(sb, i)));
+  return { hits: all.reduce((a, b) => a + b, 0), limit: monthlyLimit() * n, keys: n };
 }
 
 export async function rapid<T = any>(sb: SupabaseClient, path: string, ttl: number, force = false): Promise<{ data: T; stale: boolean }> {
@@ -29,24 +40,29 @@ export async function rapid<T = any>(sb: SupabaseClient, path: string, ttl: numb
     if (row) return { data: row.payload as T, stale: true };
     throw new HttpError(503, why, { manualFallback: true });
   };
-  const k = process.env.RAPIDAPI_KEY;
-  if (!k) return stale('RAPIDAPI_KEY is not set.');
-  const { hits } = await rapidUsage(sb);
-  if (hits >= monthlyLimit()) return stale(`RapidAPI monthly budget used (${hits}/${monthlyLimit()}).`);
+  const list = keys();
+  if (!list.length) return stale('RAPIDAPI_KEY is not set.');
+  const used = await Promise.all(list.map((_, i) => hitsFor(sb, i)));
 
-  let json: any;
-  try {
-    const res = await fetch(`https://${host()}/${path}`, { headers: { 'x-rapidapi-key': k, 'x-rapidapi-host': host() }, cache: 'no-store' });
+  for (let tries = 0; tries < list.length; tries++) {
+    const i = pickKey(used, monthlyLimit(), true, 0); // no reserve here: fixtures are this key's only use
+    if (i < 0) return stale(`RapidAPI monthly budget used (${used.join('/')} of ${monthlyLimit()} per key).`);
+    let res: Response;
+    try {
+      res = await fetch(`https://${host()}/${path}`, { headers: { 'x-rapidapi-key': list[i], 'x-rapidapi-host': host() }, cache: 'no-store' });
+    } catch {
+      return stale('RapidAPI is unreachable.');
+    }
+    // RapidAPI reports the real allowance in headers: trust it over our own count
+    const lim = Number(res.headers.get('x-ratelimit-requests-limit')), rem = Number(res.headers.get('x-ratelimit-requests-remaining'));
+    used[i] = Number.isFinite(lim) && Number.isFinite(rem) && res.headers.get('x-ratelimit-requests-remaining') !== null ? Math.max(used[i] + 1, lim - rem) : used[i] + 1;
+    if (res.status === 429 || res.status === 403) { used[i] = monthlyLimit(); await sb.from('api_cache').upsert(saveHits(sb, i, used[i])); continue; } // this key is used up: try the next one
     if (!res.ok) return stale(`RapidAPI ${res.status}`);
-    json = await res.json();
-  } catch {
-    return stale('RapidAPI is unreachable.');
+    const json = await res.json();
+    await sb.from('api_cache').upsert([{ key, payload: json, fetched_at: new Date().toISOString(), ttl_seconds: ttl }, saveHits(sb, i, used[i])]);
+    return { data: json as T, stale: false };
   }
-  await sb.from('api_cache').upsert([
-    { key, payload: json, fetched_at: new Date().toISOString(), ttl_seconds: ttl },
-    { key: usageKey(), payload: { hits: hits + 1 }, fetched_at: new Date().toISOString(), ttl_seconds: 31 * 86400 },
-  ]);
-  return { data: json as T, stale: false };
+  return stale('RapidAPI: every key is used up for this month.');
 }
 
 export interface RapidMatch {

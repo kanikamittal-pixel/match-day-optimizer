@@ -69,6 +69,7 @@ Stack: Next.js 15 + TypeScript on Vercel · Supabase (Postgres) · Gemini Flash 
 
 - Dream11's exact team limits (7 vs 10 per team, role limits) are not on its public points page, so they are unverified against the current app. The role limits and the 100-credit cap can only be tightened in Settings, never loosened.
 - Cricsheet publishes a few days late; the newest matches are filled in from CricketData scorecards when its free daily quota allows (15 of the 100 daily calls are reserved for scorecards) and are listed under Insights, Data check as waiting.
+- **Backup keys.** `CRICKETDATA_API_KEY_2` and `RAPIDAPI_KEY_2` are optional. Each service counts its calls per key and moves on to the next key when one is used up (and reads RapidAPI's own remaining-calls header), so a daily or monthly limit on one key does not stop the app.
 - The second-source accuracy check covers one match so far because of that quota.
 - No cricket source publishes Dream11 credits, so credits are optional; without them the 100-credit cap is not enforced.
 - **Linking players to their history.** Dream11 shows short names ("C Wickra", two players called "K Mendis"), while Cricsheet uses initials ("BKG Mendis"). Once the announced XI is known, its spelled-out names are used to link each player (strict, never a guess), which linked 22 of 22 players for Pakistan v Sri Lanka against 15 of 22 from the short names alone. `npm run repair:names` fixes older top-up rows stored under a different spelling.
