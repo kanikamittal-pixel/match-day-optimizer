@@ -21,7 +21,8 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   const credits = await loadCredits(sb, id);
   const keys = new Set(eligibleKeys(m.xi));
   const list = credits.filter((c) => keys.has(c.name_key)).map((c) => ({ key: c.name_key, name: c.name, team: c.team }));
-  const players = await historyFor(sb, list, m.starts_at ?? new Date().toISOString(), m.format ?? 'T20', id);
+  const { data: namesRow } = await sb.from('api_cache').select('payload').eq('key', `names:${id}`).maybeSingle();
+  const players = await historyFor(sb, list, m.starts_at ?? new Date().toISOString(), m.format ?? 'T20', id, { fullNames: namesRow?.payload?.names ?? {} });
   must(await sb.from('api_cache').upsert({ key: key(id), payload: { players }, fetched_at: new Date().toISOString(), ttl_seconds: 86400 }), 'save stats');
   const withBase = Object.values(players).filter((h) => h.base !== undefined).length;
   return { total: list.length, withBase, found: Object.values(players).filter((h) => h.found).length, players };

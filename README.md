@@ -71,5 +71,6 @@ Stack: Next.js 15 + TypeScript on Vercel · Supabase (Postgres) · Gemini Flash 
 - Cricsheet publishes a few days late; the newest matches are filled in from CricketData scorecards when its free daily quota allows (15 of the 100 daily calls are reserved for scorecards) and are listed under Insights, Data check as waiting.
 - The second-source accuracy check covers one match so far because of that quota.
 - No cricket source publishes Dream11 credits, so credits are optional; without them the 100-credit cap is not enforced.
+- **Linking players to their history.** Dream11 shows short names ("C Wickra", two players called "K Mendis"), while Cricsheet uses initials ("BKG Mendis"). Once the announced XI is known, its spelled-out names are used to link each player (strict, never a guess), which linked 22 of 22 players for Pakistan v Sri Lanka against 15 of 22 from the short names alone. `npm run repair:names` fixes older top-up rows stored under a different spelling.
 - A side Cricsheet does not cover (for example some domestic teams) has no history, and the app says so.
 - The AI's pitch and weather adjustment helped in some back-tests and hurt in others; each Match Report shows which.

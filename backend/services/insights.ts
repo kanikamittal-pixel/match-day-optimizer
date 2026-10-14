@@ -236,7 +236,8 @@ export async function baselineComparison(sb: SupabaseClient): Promise<BaselineRe
   for (const [mid, ps] of byMatch) {
     const m = mm.get(mid);
     if (!m) continue;
-    const hist = await historyFor(sb, ps.map((p) => ({ key: p.name_key, name: p.player_name, team: p.team })), m.starts_at ?? m.created_at, m.format ?? 'T20', mid);
+    const { data: namesRow } = await sb.from('api_cache').select('payload').eq('key', `names:${mid}`).maybeSingle();
+    const hist = await historyFor(sb, ps.map((p) => ({ key: p.name_key, name: p.player_name, team: p.team })), m.starts_at ?? m.created_at, m.format ?? 'T20', mid, { fullNames: namesRow?.payload?.names ?? {} });
     const rows = ps
       .map((p) => ({ pred: Number(p.expected_points), act: actual.get(`${mid}|${p.name_key}`)!, last5: hist[p.name_key]?.recent?.slice(0, 5) }))
       .filter((r) => r.last5 && r.last5.length >= 3)

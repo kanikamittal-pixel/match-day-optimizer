@@ -3,7 +3,7 @@ import { cricket, TTL } from '@/backend/integrations/cricketdata';
 import { aggregatesFromScorecard } from '@/backend/services/scorecard';
 import { loadAliases } from '@/backend/services/cricsheet-ingest';
 import { scoreAgg, type ScoreRole } from '@/shared/scoring';
-import { matchStrictAliases, nameKey, uniqueCanon } from '@/shared/names';
+import { linkRoster, nameKey, uniqueCanon } from '@/shared/names';
 
 /**
  * Cricsheet publishes with a delay. For finished T20s newer than its latest match, this fills the gap from CricketData
@@ -55,16 +55,20 @@ export async function topUpFromCricketData(sb: SupabaseClient, maxMatches = 6): 
     // map CricketData's full names onto the names Cricsheet uses, within each team's recent roster
     const roster = new Map<string, string[]>();
     for (const t of teams) {
-      const { data } = await sb.from('player_match_points').select('player').eq('team', t).eq('gender', gender).gte('played_on', shift(date, -1100)).order('played_on', { ascending: false }).order('match_ref').order('team').order('name_key').limit(1500);
+      const { data } = await sb.from('player_match_points').select('player').eq('team', t).eq('gender', gender).not('match_ref', 'like', 'cd-%').gte('played_on', shift(date, -1100)).order('played_on', { ascending: false }).order('match_ref').order('team').order('name_key').limit(1500);
       roster.set(t, [...new Set((data ?? []).map((r: any) => r.player as string))]);
+    }
+    // link each scorecard player to the name Cricsheet already uses for him, so his history stays in one piece
+    const linkOf = new Map<string, string>();
+    for (const t of teams) {
+      const mine = [...aggs.keys()].filter((n) => teamOf.get(n) === t).map((n) => ({ key: n, names: [n] }));
+      for (const [k, v] of linkRoster(mine, roster.get(t) ?? [], aliases)) linkOf.set(`${t}|${k}`, v);
     }
     const pre: { name: string; agg: any; t: string; canon: string }[] = [];
     for (const [name, agg] of aggs) {
       const t = teamOf.get(name);
       if (!t) continue;
-      const names = roster.get(t) ?? [];
-      const canon = names.includes(name) ? name : matchStrictAliases(name, names, aliases) ?? name;
-      pre.push({ name, agg, t, canon });
+      pre.push({ name, agg, t, canon: linkOf.get(`${t}|${name}`) ?? name });
     }
     const canons = uniqueCanon(pre.map((p) => ({ team: p.t, name: p.name, canon: p.canon })));
     const rows: any[] = [];

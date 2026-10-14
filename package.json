@@ -12,7 +12,8 @@
     "backtest": "tsx backend/scripts/backtest.ts",
     "backtest:formulas": "tsx backend/scripts/backtest-formulas.ts",
     "audit:form": "tsx backend/scripts/audit-form.ts",
-    "backup": "tsx backend/scripts/backup.ts"
+    "backup": "tsx backend/scripts/backup.ts",
+    "repair:names": "tsx backend/scripts/repair-topup-names.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",

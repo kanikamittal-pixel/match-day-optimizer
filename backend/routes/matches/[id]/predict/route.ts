@@ -12,7 +12,8 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   const { sb } = await requireUser();
   const { match, pool, stage } = await preflight(sb, id);
   const { version, weights } = await loadActiveWeights(sb);
-  const history = await historyFor(sb, pool.map((p) => ({ key: p.key, name: p.name, team: p.team })), match.starts_at ?? new Date().toISOString(), match.format ?? 'T20', id);
+  const { data: namesRow } = await sb.from('api_cache').select('payload').eq('key', `names:${id}`).maybeSingle();
+  const history = await historyFor(sb, pool.map((p) => ({ key: p.key, name: p.name, team: p.team })), match.starts_at ?? new Date().toISOString(), match.format ?? 'T20', id, { fullNames: namesRow?.payload?.names ?? {} });
   const rows = await predictExpectedPoints(sb, { match, pool, weights, weightsVersion: version, stageLabel: stageLabel(stage), history });
   const byKey = new Map(pool.map((p) => [p.key, p]));
   must(await sb.from('predictions').delete().eq('match_id', id), 'clear predictions');

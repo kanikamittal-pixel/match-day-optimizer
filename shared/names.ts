@@ -172,7 +172,7 @@ function editDistance(a: string, b: string): number {
  *  3. A spelling variant ("Moqim" for "Muqeem") is linked only if it is the clearly closest, unique surname among the
  *     squad players left over, with the same first initial. These are reported in `guessed` so they can be checked.
  */
-export function mapAnnounced(announced: string[], pool: { key: string; name: string }[]): { keys: string[]; unmatched: string[]; guessed: { announced: string; matched: string }[] } {
+export function mapAnnounced(announced: string[], pool: { key: string; name: string }[]): { keys: string[]; pairs: { announced: string; key: string }[]; unmatched: string[]; guessed: { announced: string; matched: string }[] } {
   const keyOf = new Map<number, string>();
   const used = new Set<string>();
   const cands = announced.map((a) => pool.filter((p) => sameShortName(a, p.name)).map((p) => p.key));
@@ -209,5 +209,84 @@ export function mapAnnounced(announced: string[], pool: { key: string; name: str
     }
   });
 
-  return { keys: announced.flatMap((_, i) => (keyOf.has(i) ? [keyOf.get(i) as string] : [])), unmatched: announced.filter((_, i) => !keyOf.has(i)), guessed };
+  return { keys: announced.flatMap((_, i) => (keyOf.has(i) ? [keyOf.get(i) as string] : [])), pairs: announced.flatMap((n, i) => (keyOf.has(i) ? [{ announced: n, key: keyOf.get(i) as string }] : [])), unmatched: announced.filter((_, i) => !keyOf.has(i)), guessed };
+}
+
+/** Two first names that are both spelled out must agree ("Kamindu" is not "Kusal"); an initial agrees with anything starting with it. */
+function firstNamesAgree(a: string, b: string): boolean {
+  const fa = tokens(a)[0] ?? '', fb = tokens(b)[0] ?? '';
+  if (fa.length < 3 || fb.length < 3) return true;
+  return fa.startsWith(fb) || fb.startsWith(fa) || (Math.min(fa.length, fb.length) >= 4 && editDistance(fa, fb) <= 1); // "Hasan" and "Hassan" are one person
+}
+
+/**
+ * Link squad players to the names Cricsheet uses (inside ONE team's roster). Each player may come with several
+ * spellings, best first (a full name from the announced XI, then the short Dream11 name). Strict, in three steps:
+ *  1. Surname + first initial, also against Cricsheet's alternative spellings (matchStrictAliases), exactly one hit.
+ *  2. A full name whose words all appear in a roster name ("Mohammad Imran" in "Mohammad Imran Randhawa"), one hit.
+ *  3. A full first name whose initial is inside Cricsheet's initials ("Kamindu" has K, "PHKD Mendis" has K), counting
+ *     only roster names not already taken by another squad player, and only if exactly one is left.
+ * Never guesses: anything still ambiguous gets no link, because another player's history is worse than none.
+ */
+export function linkRoster(players: { key: string; names: string[] }[], roster: string[], aliases: Record<string, string[]>): Map<string, string> {
+  const links = new Map<string, string>();
+  const taken = () => new Set(links.values());
+  const rosterSet = [...new Set(roster)];
+
+  // 1. strict surname + initial
+  // a spelled-out name is more exact than a short one: when a player has one, only that name is used for linking
+  const best = (p: { names: string[] }) => p.names.filter((n) => (tokens(n)[0] ?? '').length >= 3 && tokens(n).length > 1).slice(0, 1).concat(p.names).slice(0, 1);
+  for (const p of players) for (const n of best(p)) {
+    const hits = rosterSet.filter((c) => [c, ...(aliases[c] ?? [])].some((x) => matchStrict(n, [x]) !== null && firstNamesAgree(n, x)));
+    if (hits.length === 1) { links.set(p.key, hits[0]); break; }
+  }
+
+  // 2. every word of a full name is inside a roster name (or one of its alternative spellings)
+  for (const p of players) {
+    if (links.has(p.key)) continue;
+    for (const n of p.names) {
+      const t = tokens(n);
+      if (t.length < 2 || t.some((w) => w.length < 3)) continue; // only real full names
+      const hits = rosterSet.filter((c) => [c, ...(aliases[c] ?? [])].some((x) => { const xt = tokens(x); return t.every((w) => xt.includes(w)); }));
+      if (hits.length === 1 && !taken().has(hits[0])) { links.set(p.key, hits[0]); break; }
+    }
+  }
+
+  // 3. first initial found inside the initials block, by elimination
+  const free = (p: { key: string; names: string[] }) => {
+    for (const n of p.names) {
+      const t = tokens(n);
+      if (t.length < 2 || t[0].length < 3) continue; // needs a full first name
+      const sur = t[t.length - 1];
+      const hits = rosterSet.filter((c) => {
+        if (taken().has(c)) return false;
+        const ct = c.split(/\s+/);
+        const block = ct[0];
+        return ct.length >= 2 && /^[A-Z]{1,5}$/.test(block) && tokens(ct[ct.length - 1]).join('') === sur && block.toLowerCase().includes(t[0][0]);
+      });
+      if (hits.length) return hits;
+    }
+    return [] as string[];
+  };
+  for (let changed = true; changed; ) {
+    changed = false;
+    const open = players.filter((p) => !links.has(p.key));
+    for (const p of open) {
+      const hits = free(p);
+      if (hits.length !== 1) continue;
+      // another still-unlinked player must not be able to claim the same name
+      if (open.some((q) => q.key !== p.key && free(q).includes(hits[0]))) continue;
+      links.set(p.key, hits[0]); changed = true;
+    }
+  }
+  // 4. nothing found with the spelled-out name (a spelling that differs from Cricsheet's): try the short name, but only for a
+  //    history name no other squad player already holds
+  for (const p of players) {
+    if (links.has(p.key)) continue;
+    for (const n of p.names.slice(1)) {
+      const hits = rosterSet.filter((c) => [c, ...(aliases[c] ?? [])].some((x) => matchStrict(n, [x]) !== null && firstNamesAgree(n, x)));
+      if (hits.length === 1 && !taken().has(hits[0])) { links.set(p.key, hits[0]); break; }
+    }
+  }
+  return dropSharedLinks(links).kept; // two squad players on one history name means at least one link is wrong: drop both
 }

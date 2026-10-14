@@ -17,6 +17,9 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   const a = mapAnnounced(found.team_a_xi, poolOf(m.team_a));
   const b = mapAnnounced(found.team_b_xi, poolOf(m.team_b));
   const imp = mapAnnounced(found.impact_subs, credits.map((c) => ({ key: c.name_key, name: c.name })));
+  // remember the spelled-out names, so the history lookup can tell apart players the short Dream11 names cannot (two "K Mendis")
+  const names = Object.fromEntries([...a.pairs, ...b.pairs].map((x) => [x.key, x.announced]));
+  if (Object.keys(names).length) await sb.from('api_cache').upsert({ key: `names:${id}`, payload: { names }, fetched_at: new Date().toISOString(), ttl_seconds: 30 * 86400 });
   return {
     announced: true,
     note: found.note,
