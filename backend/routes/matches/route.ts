@@ -63,7 +63,13 @@ export const GET = handle(async (req: Request) => {
     sb.from('team_decisions').select('match_id,status,stage'),
     sb.from('actual_points').select('match_id'),
   ]);
-  const matches = must(matchesRes, 'list matches');
+  const allMatches = must(matchesRes, 'list matches') as any[];
+  // The same match can arrive from both fixture feeds under different ids. Show it once, keeping a copy Aryan already built a team for.
+  const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const dupKey = (m: any) => `${[norm(m.team_a), norm(m.team_b)].sort().join('|')}|${String(m.starts_at).slice(0, 10)}`;
+  const built = new Set((decRes.data ?? []).map((d: any) => d.match_id));
+  const fromCricketData = new Set(allMatches.filter((m) => !m.id.startsWith('rb-') && !m.id.startsWith('manual-')).map(dupKey));
+  const matches = allMatches.filter((m) => !(m.id.startsWith('rb-') && fromCricketData.has(dupKey(m)) && !built.has(m.id)));
   const decisions = must(decRes, 'decisions') as any[];
   const acts = must(actRes, 'actuals') as any[];
   const hasActuals = new Set(acts.map((a) => a.match_id));
