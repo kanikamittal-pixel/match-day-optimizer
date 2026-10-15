@@ -32,3 +32,15 @@ describe('localDay', () => {
     expect(localDay('not a date')).toBe('');
   });
 });
+
+import { matchPhase } from '../shared/when';
+describe('matchPhase', () => {
+  const at = (h: number) => new Date(Date.UTC(2026, 9, 13, 12) - h * 3600e3).toISOString(); // a start time h hours before "now"
+  const now = Date.UTC(2026, 9, 13, 12);
+  it('is upcoming before the start', () => expect(matchPhase({ status: 'Scheduled', starts_at: at(-3), format: 'T20' }, now)).toBe('upcoming'));
+  it('is live in the first hours', () => expect(matchPhase({ status: 'Scheduled', starts_at: at(2), format: 'T20' }, now)).toBe('live'));
+  it('is completed once a T20 should be long over, even if the feed never updated its status', () => expect(matchPhase({ status: 'Scheduled', starts_at: at(30), format: 'T20' }, now)).toBe('completed'));
+  it('gives an ODI more time than a T20', () => expect(matchPhase({ status: 'Scheduled', starts_at: at(7), format: 'ODI' }, now)).toBe('live'));
+  it('trusts a result in the status text', () => expect(matchPhase({ status: 'Sri Lanka won by 8 wkts', starts_at: at(1), format: 'T20' }, now)).toBe('completed'));
+  it('treats a match with no start time as upcoming', () => expect(matchPhase({ status: null, starts_at: null, format: 'T20' }, now)).toBe('upcoming'));
+});

@@ -3,6 +3,7 @@ import { must, requireUser } from '@/backend/integrations/supabase';
 import { cricket, formatOf, TTL } from '@/backend/integrations/cricketdata';
 import { rapid, parseSchedule, RAPID_TTL } from '@/backend/integrations/rapidapi';
 import { ensureSeed } from '@/backend/db/queries';
+import { matchPhase } from '@/shared/when';
 
 
 /** Pull fixtures from both cricket APIs into the matches table (cached by each integration). Slow: used in the background. */
@@ -70,13 +71,8 @@ export const GET = handle(async (req: Request) => {
   const awaitingIds = decisions.filter((d) => d.status === 'final' && !hasActuals.has(d.match_id)).map((d) => d.match_id);
   const awaiting = awaitingIds.length ? (must(await sb.from('matches').select('id,name,starts_at').in('id', awaitingIds), 'awaiting') as any[]).filter((m) => !m.starts_at || new Date(m.starts_at).getTime() < Date.now()) : []; // only matches that have started can have a result
 
-  // Phase comes from the API status text plus the start time, so finished matches never read "Not started".
-  const DONE = /\b(won by|won the match|match drawn|drawn|tied|no result|abandoned|match ended|completed|result)\b/i;
-  const phaseOf = (m: any): 'completed' | 'live' | 'upcoming' => {
-    if (m.status && DONE.test(m.status)) return 'completed';
-    if (m.starts_at && new Date(m.starts_at).getTime() <= Date.now()) return 'live';
-    return 'upcoming';
-  };
+  // Phase comes from the API status text plus the start time, so finished matches never read "Not started" or stay "live" for days.
+  const phaseOf = (m: any) => matchPhase(m);
   const withPhase = (matches as any[]).map((m) => ({ ...m, phase: phaseOf(m), has_team: dec.has(m.id), team_status: dec.get(m.id)?.status ?? null, results_in: hasActuals.has(m.id) }));
   // Hide finished matches Aryan never worked on; keep ones with a team so results can still be entered.
   // Test / first-class matches are left out: our scoring and fantasy history are T20-only (kept only if a team already exists)
