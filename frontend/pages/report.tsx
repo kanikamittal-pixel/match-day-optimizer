@@ -41,13 +41,13 @@ function Compare({ title, a, b, labelKey }: { title: string; a: any[]; b: any; l
   );
 }
 
-type Item = { key: string; kind: string; title: string; date: string | null; ourPoints?: number; topPoints?: number };
+type Item = { key: string; kind: string; title: string; date: string | null; state?: 'result_in' | 'awaiting_result' | 'upcoming'; ourPoints?: number; topPoints?: number };
 
 function MatchPicker({ list, value, onPick }: { list: Item[]; value: string; onPick: (k: string) => void }) {
   const [q, setQ] = useState('');
   const now = Date.now();
   const shown = list.filter((m) => m.title.toLowerCase().includes(q.trim().toLowerCase()));
-  const done = shown.filter((m) => m.kind === 'backtest' || (m.date && new Date(m.date).getTime() < now));
+  const done = shown.filter((m) => m.kind === 'backtest' || m.state === 'result_in' || m.state === 'awaiting_result' || (m.date && new Date(m.date).getTime() < now));
   const soon = shown.filter((m) => !done.includes(m));
   const card = (m: Item) => {
     const [a, b] = m.title.split(/\s+vs?\.?\s+/i).map((x) => x.split(',')[0].trim());
@@ -57,7 +57,9 @@ function MatchPicker({ list, value, onPick }: { list: Item[]; value: string; onP
         <div className="row" style={{ gap: 6 }}><span className="d-code sm">{short(a || '')}</span><span className="vs">v</span><span className="d-code sm b">{short(b || '')}</span></div>
         <div className="mp-title">{m.title.split(',')[0]}</div>
         <div className="sub">{m.date ? new Date(m.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</div>
-        {m.kind === 'backtest' ? <div className="mp-score"><b className="num">{pct}%</b><span> of the best team · {m.ourPoints} / {m.topPoints}</span></div> : <div className="mp-score"><span className="pill warn">Live team</span></div>}
+        {pct !== null
+          ? <div className="mp-score"><b className="num">{pct}%</b><span> of the best team · {m.ourPoints} / {m.topPoints}</span></div>
+          : <div className="mp-score">{m.state === 'upcoming' ? <span className="pill">Team built · not played yet</span> : m.state === 'awaiting_result' ? <span className="pill warn">Played · result not entered yet</span> : <span className="pill ok">Result saved · open to see</span>}</div>}
       </button>
     );
   };
@@ -72,7 +74,7 @@ function MatchPicker({ list, value, onPick }: { list: Item[]; value: string; onP
 }
 
 export default function Report() {
-  const [list, setList] = useState<{ key: string; kind: string; title: string; date: string | null }[] | null>(null);
+  const [list, setList] = useState<Item[] | null>(null);
   const [key, setKey] = useState('');
   const [d, setD] = useState<any>(null);
   const [busy, setBusy] = useState(false);

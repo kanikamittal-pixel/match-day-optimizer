@@ -38,8 +38,13 @@ export const GET = handle(async (req: Request) => {
   const matches = ids.length ? (must(await sb.from('matches').select('id,name,starts_at,team_a,team_b').in('id', ids), 'matches') as any[]) : [];
 
   if (!key) {
+    const { data: acts } = await sb.from('actual_points').select('match_id');
+    const hasResult = new Set((acts ?? []).map((x: any) => x.match_id));
+    const { data: reps } = await sb.from('api_cache').select('key,payload').like('key', 'rep:m:%');
+    const head = new Map((reps ?? []).map((r: any) => [String(r.key).slice(4), r.payload]));
+    const state = (m: any) => (hasResult.has(m.id) ? 'result_in' : m.starts_at && new Date(m.starts_at).getTime() <= Date.now() ? 'awaiting_result' : 'upcoming');
     const list = [
-      ...decisions.flatMap((d) => { const m = matches.find((x) => x.id === d.match_id); return m ? [{ key: `m:${m.id}`, kind: 'live', title: m.name, date: m.starts_at }] : []; }),
+      ...decisions.flatMap((d) => { const m = matches.find((x) => x.id === d.match_id); return m ? [{ key: `m:${m.id}`, kind: 'live', title: m.name, date: m.starts_at, state: state(m), ourPoints: head.get(`m:${m.id}`)?.ourPoints, topPoints: head.get(`m:${m.id}`)?.topPoints }] : []; }),
       ...[...latest.values()].map((r) => ({ key: `bt:${r.ref}`, kind: 'backtest', title: `${r.title}`, date: r.date, ourPoints: r.metrics.agent, topPoints: r.metrics.hindsight })),
     ].sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')));
     return { matches: list };
@@ -94,5 +99,6 @@ export const GET = handle(async (req: Request) => {
   const report = matchReport(players, { xi: ourXI, captain: nm(d.recommended.captain), vc: nm(d.recommended.vc) }, top, null, mult);
   // If Aryan changed the team before finalising, the same report for his version
   const aryanReport = changed && fin ? matchReport(players, { xi: finXI, captain: nm(fin.captain), vc: nm(fin.vc) }, top, null, mult) : null;
+  await sb.from('api_cache').upsert({ key: `rep:${key}`, payload: { ourPoints: report.headline.ourPoints, topPoints: report.headline.topPoints }, fetched_at: new Date().toISOString(), ttl_seconds: 3650 * 86400 }); // so the match list can show the score
   return { ...head, source: res.source, pending: null, report, aryanReport };
 });
